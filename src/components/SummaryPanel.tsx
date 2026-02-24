@@ -1,9 +1,10 @@
-import { Info, CheckCircle2, Star } from "lucide-react";
+import { Info, CheckCircle2, Star, Wand2 } from "lucide-react";
 import { useCharacterStore } from "@/state/characterStore";
 import { useBuilderStore } from "@/state/builderStore";
 import { races } from "@/data/races";
 import { classes } from "@/data/classes";
 import { backgrounds } from "@/data/backgrounds";
+import { spells as spellsData } from "@/data/spells";
 import {
   ABILITY_SHORT,
   ABILITIES,
@@ -135,6 +136,77 @@ export function SummaryPanel() {
           </h2>
           <p className="text-xs font-medium">{originFeat.name}</p>
           <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-3">{originFeat.description}</p>
+        </div>
+      )}
+
+      {/* Spellcasting */}
+      {isSpellcaster && cls?.spellcasting && (
+        <div className="rounded-lg border bg-card p-4">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+            <Wand2 className="h-3.5 w-3.5 text-primary" />
+            Conjuração
+          </h2>
+          <div className="space-y-1.5 text-xs">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Atributo</span>
+              <span className="font-medium">{cls.spellcasting.ability}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">CD</span>
+              <span className="font-medium">{char.spells.spellSaveDC}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Ataque</span>
+              <span className="font-medium">+{char.spells.spellAttackBonus}</span>
+            </div>
+          </div>
+          {/* Slots */}
+          {char.spells.slots.length > 0 && (
+            <div className="mt-2 pt-2 border-t">
+              <p className="text-[10px] uppercase text-muted-foreground mb-1">Slots</p>
+              <div className="flex gap-2 flex-wrap">
+                {char.spells.slots.map((count, i) => count > 0 && (
+                  <span key={i} className="rounded bg-secondary px-1.5 py-0.5 text-[11px]">
+                    {i + 1}º: {count}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Cantrips */}
+          {char.spells.cantrips.length > 0 && (
+            <div className="mt-2 pt-2 border-t">
+              <p className="text-[10px] uppercase text-muted-foreground mb-1">Truques</p>
+              <div className="flex flex-wrap gap-1">
+                {char.spells.cantrips.map((id) => {
+                  const sp = spellsData.find((s) => s.id === id);
+                  return (
+                    <span key={id} className="rounded bg-secondary px-1.5 py-0.5 text-[11px]">
+                      {sp?.name ?? id}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {/* Prepared/Known */}
+          {char.spells.prepared.length > 0 && (
+            <div className="mt-2 pt-2 border-t">
+              <p className="text-[10px] uppercase text-muted-foreground mb-1">
+                {cls.spellcasting.type === "known" || cls.spellcasting.type === "pact" ? "Conhecidas" : "Preparadas"}
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {char.spells.prepared.map((id) => {
+                  const sp = spellsData.find((s) => s.id === id);
+                  return (
+                    <span key={id} className="rounded bg-secondary px-1.5 py-0.5 text-[11px]">
+                      {sp?.name ?? id}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
