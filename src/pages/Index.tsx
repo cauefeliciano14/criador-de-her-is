@@ -35,7 +35,7 @@ const Index = () => {
 
   const classId = useCharacterStore((s) => s.class);
   const cls = classes.find((c) => c.id === classId);
-  const isSpellcaster = cls?.isSpellcaster ?? false;
+  const isSpellcaster = cls?.spellcasting !== null;
   const visibleSteps = getVisibleSteps(isSpellcaster);
 
   const currentIdx = visibleSteps.findIndex((s) => s.id === currentStep);

@@ -23,7 +23,7 @@ export function SummaryPanel() {
   const subrace = race?.subraces.find((sr) => sr.id === char.subrace);
   const cls = classes.find((c) => c.id === char.class);
   const bg = backgrounds.find((b) => b.id === char.background);
-  const isSpellcaster = cls?.isSpellcaster ?? false;
+  const isSpellcaster = cls?.spellcasting !== null;
   const visibleSteps = getVisibleSteps(isSpellcaster);
 
   const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses);

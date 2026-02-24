@@ -19,6 +19,7 @@ export interface NormalizedFeature {
   sourceId: string;
   name: string;
   description: string;
+  level?: number;
 }
 
 const DEFAULT_ABILITY_GEN: AbilityGeneration = {
@@ -50,6 +51,8 @@ export interface CharacterState {
   proficiencyBonus: number;
   savingThrows: string[];
   skills: string[];
+  classSkillChoices: string[];
+  classEquipmentChoice: string | null;
   proficiencies: {
     armor: string[];
     weapons: string[];
@@ -88,6 +91,8 @@ const DEFAULT_CHARACTER: CharacterState = {
   proficiencyBonus: 2,
   savingThrows: [],
   skills: [],
+  classSkillChoices: [],
+  classEquipmentChoice: null,
   proficiencies: { armor: [], weapons: [], tools: [], languages: [] },
   hitDie: 8,
   hitPoints: { max: 8, current: 8 },
@@ -156,9 +161,9 @@ export function mergeUnique<T>(...arrays: T[][]): T[] {
 /** Remove features by sourceType and sourceId, then add new ones */
 export function replaceFeatures(
   current: NormalizedFeature[],
-  removeTypes: Array<"race" | "subrace">,
+  removeTypes: Array<"race" | "subrace" | "class" | "subclass">,
   add: NormalizedFeature[]
 ): NormalizedFeature[] {
-  const filtered = current.filter((f) => !removeTypes.includes(f.sourceType as "race" | "subrace"));
+  const filtered = current.filter((f) => !removeTypes.includes(f.sourceType as any));
   return [...filtered, ...add];
 }
