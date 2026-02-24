@@ -6,7 +6,7 @@ import { classes } from "@/data/classes";
 export function SidebarSteps() {
   const classId = useCharacterStore((s) => s.class);
   const cls = classes.find((c) => c.id === classId);
-  const isSpellcaster = cls?.isSpellcaster ?? false;
+  const isSpellcaster = cls?.spellcasting !== null;
 
   const currentStep = useBuilderStore((s) => s.currentStep);
   const completedSteps = useBuilderStore((s) => s.completedSteps);

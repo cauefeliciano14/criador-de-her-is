@@ -16,7 +16,7 @@ export function StepReview() {
   const race = races.find((r) => r.id === char.race);
   const cls = classes.find((c) => c.id === char.class);
   const bg = backgrounds.find((b) => b.id === char.background);
-  const isSpellcaster = cls?.isSpellcaster ?? false;
+  const isSpellcaster = cls?.spellcasting !== null;
 
   const visibleSteps = builder.getVisibleSteps(isSpellcaster);
   const allComplete = visibleSteps
