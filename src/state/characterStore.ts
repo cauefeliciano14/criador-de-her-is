@@ -1,17 +1,24 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { recalcDerivedStats, type AbilityKey } from "@/utils/calculations";
+import { recalcDerivedStats, type AbilityKey, ABILITIES } from "@/utils/calculations";
 
 export type AbilityMethod = "standard" | "pointBuy" | "roll" | null;
 
 export interface AbilityGeneration {
   method: AbilityMethod;
-  rolls: number[][] | null; // 6 arrays of 4 dice each
-  rollResults: number[] | null; // 6 summed results
+  rolls: number[][] | null;
+  rollResults: number[] | null;
   pointBuyRemaining: number;
   standardAssignments: Record<AbilityKey, number | null>;
   rollAssignments: Record<AbilityKey, number | null>;
   confirmed: boolean;
+}
+
+export interface NormalizedFeature {
+  sourceType: "race" | "subrace" | "class" | "subclass" | "background" | "other";
+  sourceId: string;
+  name: string;
+  description: string;
 }
 
 const DEFAULT_ABILITY_GEN: AbilityGeneration = {
@@ -24,6 +31,9 @@ const DEFAULT_ABILITY_GEN: AbilityGeneration = {
   confirmed: false,
 };
 
+const DEFAULT_SCORES: Record<AbilityKey, number> = { str: 8, dex: 8, con: 8, int: 8, wis: 8, cha: 8 };
+const DEFAULT_RACIAL: Record<AbilityKey, number> = { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 };
+
 export interface CharacterState {
   name: string;
   level: number;
@@ -35,6 +45,7 @@ export interface CharacterState {
   abilityGeneration: AbilityGeneration;
   abilityScores: Record<AbilityKey, number>;
   racialBonuses: Record<AbilityKey, number>;
+  raceAbilityChoices: Partial<Record<AbilityKey, number>>;
   abilityMods: Record<AbilityKey, number>;
   proficiencyBonus: number;
   savingThrows: string[];
@@ -49,7 +60,7 @@ export interface CharacterState {
   hitPoints: { max: number; current: number };
   armorClass: number;
   speed: number;
-  features: { name: string; description: string }[];
+  features: NormalizedFeature[];
   spells: {
     cantrips: string[];
     prepared: string[];
@@ -60,9 +71,6 @@ export interface CharacterState {
   };
   equipment: string[];
 }
-
-const DEFAULT_SCORES: Record<AbilityKey, number> = { str: 8, dex: 8, con: 8, int: 8, wis: 8, cha: 8 };
-const DEFAULT_RACIAL: Record<AbilityKey, number> = { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 };
 
 const DEFAULT_CHARACTER: CharacterState = {
   name: "",
@@ -75,6 +83,7 @@ const DEFAULT_CHARACTER: CharacterState = {
   abilityGeneration: { ...DEFAULT_ABILITY_GEN },
   abilityScores: { ...DEFAULT_SCORES },
   racialBonuses: { ...DEFAULT_RACIAL },
+  raceAbilityChoices: {},
   abilityMods: { str: -1, dex: -1, con: -1, int: -1, wis: -1, cha: -1 },
   proficiencyBonus: 2,
   savingThrows: [],
@@ -138,3 +147,18 @@ export const useCharacterStore = create<CharacterState & CharacterActions>()(
     { name: "dnd-character-2024" }
   )
 );
+
+/** Merge arrays with unique values */
+export function mergeUnique<T>(...arrays: T[][]): T[] {
+  return [...new Set(arrays.flat())];
+}
+
+/** Remove features by sourceType and sourceId, then add new ones */
+export function replaceFeatures(
+  current: NormalizedFeature[],
+  removeTypes: Array<"race" | "subrace">,
+  add: NormalizedFeature[]
+): NormalizedFeature[] {
+  const filtered = current.filter((f) => !removeTypes.includes(f.sourceType as "race" | "subrace"));
+  return [...filtered, ...add];
+}
