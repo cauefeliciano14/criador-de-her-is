@@ -18,7 +18,7 @@ export function StepSkills() {
   const cls = classes.find((c) => c.id === classId);
   const bg = backgrounds.find((b) => b.id === bgId);
 
-  const bgSkills = bg?.skillProficiencies ?? [];
+  const bgSkills = bg?.skills ?? [];
   const classChoices = cls?.skillChoices;
   const maxClassSkills = classChoices?.choose ?? 0;
 
