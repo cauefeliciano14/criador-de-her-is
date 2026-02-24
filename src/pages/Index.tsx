@@ -8,7 +8,6 @@ import { StepAbilityMethod } from "@/components/steps/StepAbilityMethod";
 import { StepRace } from "@/components/steps/StepRace";
 import { StepClass } from "@/components/steps/StepClass";
 import { StepBackground } from "@/components/steps/StepBackground";
-import { StepAbilities } from "@/components/steps/StepAbilities";
 import { StepSkills } from "@/components/steps/StepSkills";
 import { StepSpells } from "@/components/steps/StepSpells";
 import { StepEquipment } from "@/components/steps/StepEquipment";
@@ -20,7 +19,6 @@ const STEP_COMPONENTS: Record<StepId, React.ComponentType> = {
   race: StepRace,
   class: StepClass,
   background: StepBackground,
-  abilities: StepAbilities,
   skills: StepSkills,
   spells: StepSpells,
   equipment: StepEquipment,
@@ -58,7 +56,6 @@ const Index = () => {
           <div className="flex-1 overflow-y-auto">
             <StepComponent />
           </div>
-          {/* Navigation bar */}
           <div className="flex items-center justify-between border-t bg-card px-6 py-3">
             <button
               onClick={prevStep}

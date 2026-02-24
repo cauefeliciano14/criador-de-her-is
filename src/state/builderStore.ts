@@ -6,7 +6,6 @@ export type StepId =
   | "race"
   | "class"
   | "background"
-  | "abilities"
   | "skills"
   | "spells"
   | "equipment"
@@ -16,7 +15,7 @@ export interface StepDef {
   id: StepId;
   num: number;
   label: string;
-  conditional?: boolean; // e.g. spells only for casters
+  conditional?: boolean;
 }
 
 export const STEPS: StepDef[] = [
@@ -24,19 +23,17 @@ export const STEPS: StepDef[] = [
   { id: "race", num: 2, label: "Raça" },
   { id: "class", num: 3, label: "Classe" },
   { id: "background", num: 4, label: "Antecedente" },
-  { id: "abilities", num: 5, label: "Atributos" },
-  { id: "skills", num: 6, label: "Perícias & Proficiências" },
-  { id: "spells", num: 7, label: "Magias", conditional: true },
-  { id: "equipment", num: 8, label: "Equipamento" },
-  { id: "review", num: 9, label: "Revisão Final" },
+  { id: "skills", num: 5, label: "Perícias & Proficiências" },
+  { id: "spells", num: 6, label: "Magias", conditional: true },
+  { id: "equipment", num: 7, label: "Equipamento" },
+  { id: "review", num: 8, label: "Revisão Final" },
 ];
 
 interface BuilderState {
   currentStep: StepId;
   completedSteps: StepId[];
-  requiredMissing: Record<StepId, string[]>;
+  requiredMissing: Record<string, string[]>;
   lastSavedAt: string | null;
-  // actions
   goToStep: (step: StepId) => void;
   nextStep: () => void;
   prevStep: () => void;
@@ -50,7 +47,7 @@ interface BuilderState {
 const DEFAULT_BUILDER = {
   currentStep: "ability-method" as StepId,
   completedSteps: [] as StepId[],
-  requiredMissing: {} as Record<StepId, string[]>,
+  requiredMissing: {} as Record<string, string[]>,
   lastSavedAt: null as string | null,
 };
 
@@ -61,7 +58,7 @@ export const useBuilderStore = create<BuilderState>()(
       goToStep: (step) => set({ currentStep: step }),
       nextStep: () => {
         const s = get();
-        const steps = s.getVisibleSteps(true); // will be called with correct value
+        const steps = s.getVisibleSteps(true);
         const idx = steps.findIndex((st) => st.id === s.currentStep);
         if (idx < steps.length - 1) set({ currentStep: steps[idx + 1].id });
       },

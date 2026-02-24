@@ -2,6 +2,28 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { recalcDerivedStats, type AbilityKey } from "@/utils/calculations";
 
+export type AbilityMethod = "standard" | "pointBuy" | "roll" | null;
+
+export interface AbilityGeneration {
+  method: AbilityMethod;
+  rolls: number[][] | null; // 6 arrays of 4 dice each
+  rollResults: number[] | null; // 6 summed results
+  pointBuyRemaining: number;
+  standardAssignments: Record<AbilityKey, number | null>;
+  rollAssignments: Record<AbilityKey, number | null>;
+  confirmed: boolean;
+}
+
+const DEFAULT_ABILITY_GEN: AbilityGeneration = {
+  method: null,
+  rolls: null,
+  rollResults: null,
+  pointBuyRemaining: 27,
+  standardAssignments: { str: null, dex: null, con: null, int: null, wis: null, cha: null },
+  rollAssignments: { str: null, dex: null, con: null, int: null, wis: null, cha: null },
+  confirmed: false,
+};
+
 export interface CharacterState {
   name: string;
   level: number;
@@ -10,8 +32,9 @@ export interface CharacterState {
   class: string | null;
   subclass: string | null;
   background: string | null;
-  abilityMethod: "standard-array" | "point-buy" | null;
+  abilityGeneration: AbilityGeneration;
   abilityScores: Record<AbilityKey, number>;
+  racialBonuses: Record<AbilityKey, number>;
   abilityMods: Record<AbilityKey, number>;
   proficiencyBonus: number;
   savingThrows: string[];
@@ -38,6 +61,9 @@ export interface CharacterState {
   equipment: string[];
 }
 
+const DEFAULT_SCORES: Record<AbilityKey, number> = { str: 8, dex: 8, con: 8, int: 8, wis: 8, cha: 8 };
+const DEFAULT_RACIAL: Record<AbilityKey, number> = { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 };
+
 const DEFAULT_CHARACTER: CharacterState = {
   name: "",
   level: 1,
@@ -46,9 +72,10 @@ const DEFAULT_CHARACTER: CharacterState = {
   class: null,
   subclass: null,
   background: null,
-  abilityMethod: null,
-  abilityScores: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
-  abilityMods: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 },
+  abilityGeneration: { ...DEFAULT_ABILITY_GEN },
+  abilityScores: { ...DEFAULT_SCORES },
+  racialBonuses: { ...DEFAULT_RACIAL },
+  abilityMods: { str: -1, dex: -1, con: -1, int: -1, wis: -1, cha: -1 },
   proficiencyBonus: 2,
   savingThrows: [],
   skills: [],
@@ -74,6 +101,7 @@ interface CharacterActions {
   patchCharacter: (partial: Partial<CharacterState>) => void;
   recalc: () => void;
   resetCharacter: () => void;
+  resetAbilities: () => void;
 }
 
 export const useCharacterStore = create<CharacterState & CharacterActions>()(
@@ -82,7 +110,6 @@ export const useCharacterStore = create<CharacterState & CharacterActions>()(
       ...DEFAULT_CHARACTER,
       setField: (key, value) => {
         set({ [key]: value } as Partial<CharacterState>);
-        // auto recalc
         const updated = { ...get(), [key]: value };
         const derived = recalcDerivedStats(updated);
         set(derived as Partial<CharacterState & CharacterActions>);
@@ -98,6 +125,15 @@ export const useCharacterStore = create<CharacterState & CharacterActions>()(
         set(derived as Partial<CharacterState & CharacterActions>);
       },
       resetCharacter: () => set({ ...DEFAULT_CHARACTER }),
+      resetAbilities: () => {
+        set({
+          abilityGeneration: { ...DEFAULT_ABILITY_GEN },
+          abilityScores: { ...DEFAULT_SCORES },
+        } as Partial<CharacterState & CharacterActions>);
+        const updated = { ...get(), abilityScores: { ...DEFAULT_SCORES }, abilityGeneration: { ...DEFAULT_ABILITY_GEN } };
+        const derived = recalcDerivedStats(updated);
+        set(derived as Partial<CharacterState & CharacterActions>);
+      },
     }),
     { name: "dnd-character-2024" }
   )
