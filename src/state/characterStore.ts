@@ -20,6 +20,7 @@ export interface NormalizedFeature {
   name: string;
   description: string;
   level?: number;
+  tags?: string[];
 }
 
 const DEFAULT_ABILITY_GEN: AbilityGeneration = {
@@ -34,6 +35,7 @@ const DEFAULT_ABILITY_GEN: AbilityGeneration = {
 
 const DEFAULT_SCORES: Record<AbilityKey, number> = { str: 8, dex: 8, con: 8, int: 8, wis: 8, cha: 8 };
 const DEFAULT_RACIAL: Record<AbilityKey, number> = { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 };
+const DEFAULT_BG_BONUSES: Record<AbilityKey, number> = { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 };
 
 export interface CharacterState {
   name: string;
@@ -47,6 +49,8 @@ export interface CharacterState {
   abilityScores: Record<AbilityKey, number>;
   racialBonuses: Record<AbilityKey, number>;
   raceAbilityChoices: Partial<Record<AbilityKey, number>>;
+  backgroundBonuses: Record<AbilityKey, number>;
+  backgroundAbilityChoices: Partial<Record<AbilityKey, number>>;
   abilityMods: Record<AbilityKey, number>;
   proficiencyBonus: number;
   savingThrows: string[];
@@ -87,6 +91,8 @@ const DEFAULT_CHARACTER: CharacterState = {
   abilityScores: { ...DEFAULT_SCORES },
   racialBonuses: { ...DEFAULT_RACIAL },
   raceAbilityChoices: {},
+  backgroundBonuses: { ...DEFAULT_BG_BONUSES },
+  backgroundAbilityChoices: {},
   abilityMods: { str: -1, dex: -1, con: -1, int: -1, wis: -1, cha: -1 },
   proficiencyBonus: 2,
   savingThrows: [],
@@ -158,10 +164,10 @@ export function mergeUnique<T>(...arrays: T[][]): T[] {
   return [...new Set(arrays.flat())];
 }
 
-/** Remove features by sourceType and sourceId, then add new ones */
+/** Remove features by sourceType, then add new ones */
 export function replaceFeatures(
   current: NormalizedFeature[],
-  removeTypes: Array<"race" | "subrace" | "class" | "subclass">,
+  removeTypes: Array<"race" | "subrace" | "class" | "subclass" | "background">,
   add: NormalizedFeature[]
 ): NormalizedFeature[] {
   const filtered = current.filter((f) => !removeTypes.includes(f.sourceType as any));

@@ -1,11 +1,10 @@
-import { Info, CheckCircle2 } from "lucide-react";
+import { Info, CheckCircle2, Star } from "lucide-react";
 import { useCharacterStore } from "@/state/characterStore";
 import { useBuilderStore } from "@/state/builderStore";
 import { races } from "@/data/races";
 import { classes } from "@/data/classes";
 import { backgrounds } from "@/data/backgrounds";
 import {
-  ABILITY_LABELS,
   ABILITY_SHORT,
   ABILITIES,
   calcAbilityMod,
@@ -26,8 +25,13 @@ export function SummaryPanel() {
   const isSpellcaster = cls?.spellcasting !== null;
   const visibleSteps = getVisibleSteps(isSpellcaster);
 
-  const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses);
-  const hasAnyBonus = ABILITIES.some((a) => char.racialBonuses[a] !== 0);
+  const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses);
+  const hasRaceBonus = ABILITIES.some((a) => char.racialBonuses[a] !== 0);
+  const hasBgBonus = ABILITIES.some((a) => char.backgroundBonuses[a] !== 0);
+  const hasAnyBonus = hasRaceBonus || hasBgBonus;
+
+  // Origin feat
+  const originFeat = char.features.find((f) => f.sourceType === "background" && f.tags?.includes("originFeat"));
 
   return (
     <aside className="w-64 shrink-0 space-y-4 p-4 overflow-y-auto">
@@ -48,40 +52,57 @@ export function SummaryPanel() {
         </div>
       </div>
 
-      {/* Ability Scores with Base/Bonus/Total */}
+      {/* Ability Scores */}
       <div className="rounded-lg border bg-card p-4">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-widest text-muted-foreground">
           Atributos
         </h2>
         {hasAnyBonus && (
-          <div className="grid grid-cols-4 gap-1 mb-2 text-[9px] text-muted-foreground uppercase">
+          <div className={`grid gap-1 mb-2 text-[9px] text-muted-foreground uppercase ${
+            hasRaceBonus && hasBgBonus ? "grid-cols-5" : "grid-cols-4"
+          }`}>
             <span></span>
             <span className="text-center">Base</span>
-            <span className="text-center">Bônus</span>
+            {hasRaceBonus && <span className="text-center">Raça</span>}
+            {hasBgBonus && <span className="text-center">Antec.</span>}
             <span className="text-center">Total</span>
           </div>
         )}
         <div className="space-y-1.5">
           {ABILITIES.map((a) => {
             const base = char.abilityScores[a];
-            const bonus = char.racialBonuses[a];
+            const raceB = char.racialBonuses[a];
+            const bgB = char.backgroundBonuses[a];
             const total = finalScores[a];
             const mod = calcAbilityMod(total);
 
             if (hasAnyBonus) {
               return (
-                <div key={a} className="grid grid-cols-4 gap-1 items-center">
+                <div key={a} className={`grid gap-1 items-center ${
+                  hasRaceBonus && hasBgBonus ? "grid-cols-5" : "grid-cols-4"
+                }`}>
                   <div className="text-[10px] uppercase text-muted-foreground font-medium">
                     {ABILITY_SHORT[a]}
                   </div>
                   <div className="text-center text-xs text-muted-foreground">{base}</div>
-                  <div className="text-center text-xs">
-                    {bonus > 0 ? (
-                      <span className="text-primary font-medium">+{bonus}</span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </div>
+                  {hasRaceBonus && (
+                    <div className="text-center text-xs">
+                      {raceB > 0 ? (
+                        <span className="text-primary font-medium">+{raceB}</span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </div>
+                  )}
+                  {hasBgBonus && (
+                    <div className="text-center text-xs">
+                      {bgB > 0 ? (
+                        <span className="text-accent-foreground font-medium">+{bgB}</span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </div>
+                  )}
                   <div className="rounded bg-secondary/40 py-1 text-center">
                     <span className="text-sm font-bold">{total}</span>
                     <span className={`text-[10px] ml-0.5 ${mod >= 0 ? "text-success" : "text-destructive"}`}>
@@ -105,6 +126,18 @@ export function SummaryPanel() {
         </div>
       </div>
 
+      {/* Origin Feat */}
+      {originFeat && (
+        <div className="rounded-lg border bg-card p-4">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+            <Star className="h-3.5 w-3.5 text-primary" />
+            Talento
+          </h2>
+          <p className="text-xs font-medium">{originFeat.name}</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-3">{originFeat.description}</p>
+        </div>
+      )}
+
       {/* Languages */}
       {char.proficiencies.languages.length > 0 && (
         <div className="rounded-lg border bg-card p-4">
@@ -112,7 +145,7 @@ export function SummaryPanel() {
             Idiomas
           </h2>
           <div className="flex flex-wrap gap-1">
-            {char.proficiencies.languages.sort((a, b) => a.localeCompare(b, "pt-BR")).map((l) => (
+            {[...char.proficiencies.languages].sort((a, b) => a.localeCompare(b, "pt-BR")).map((l) => (
               <span key={l} className="rounded bg-secondary px-1.5 py-0.5 text-[11px]">{l}</span>
             ))}
           </div>
@@ -126,7 +159,7 @@ export function SummaryPanel() {
             Perícias
           </h2>
           <div className="flex flex-wrap gap-1">
-            {char.skills.sort((a, b) => a.localeCompare(b, "pt-BR")).map((s) => (
+            {[...char.skills].sort((a, b) => a.localeCompare(b, "pt-BR")).map((s) => (
               <span key={s} className="rounded bg-secondary px-1.5 py-0.5 text-[11px]">{s}</span>
             ))}
           </div>
