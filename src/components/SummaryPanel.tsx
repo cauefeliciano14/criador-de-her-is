@@ -4,9 +4,7 @@ import { useBuilderStore } from "@/state/builderStore";
 import { races } from "@/data/races";
 import { classes } from "@/data/classes";
 import { backgrounds } from "@/data/backgrounds";
-import { ABILITY_LABELS, calcAbilityMod, type AbilityKey } from "@/utils/calculations";
-
-const ABILITIES: AbilityKey[] = ["str", "dex", "con", "int", "wis", "cha"];
+import { ABILITY_LABELS, ABILITIES, calcAbilityMod, getFinalAbilityScores, type AbilityKey } from "@/utils/calculations";
 
 export function SummaryPanel() {
   const char = useCharacterStore();

@@ -3,11 +3,11 @@ import { useBuilderStore, STEPS } from "@/state/builderStore";
 import { races } from "@/data/races";
 import { classes } from "@/data/classes";
 import { backgrounds } from "@/data/backgrounds";
-import { ABILITY_LABELS, calcAbilityMod, type AbilityKey } from "@/utils/calculations";
+import { ABILITY_LABELS, ABILITIES, calcAbilityMod, getFinalAbilityScores, type AbilityKey } from "@/utils/calculations";
 import { CheckCircle2, AlertCircle, Download } from "lucide-react";
 import { useEffect } from "react";
 
-const ABILITIES: AbilityKey[] = ["str", "dex", "con", "int", "wis", "cha"];
+
 
 export function StepReview() {
   const char = useCharacterStore();
