@@ -24,6 +24,31 @@ export interface NormalizedFeature {
   tags?: string[];
 }
 
+export interface LevelingChangeSummary {
+  type: "feature" | "hp" | "spell" | "prof" | "asi" | "subclass";
+  label: string;
+  details: string;
+}
+
+export interface ASIOrFeatChoice {
+  type: "asi" | "feat";
+  featId?: string;
+  asi?: Partial<Record<AbilityKey, number>>;
+}
+
+export interface LevelingState {
+  pending: boolean;
+  fromLevel: number;
+  toLevel: number;
+  hpMethod: "average" | "roll" | null;
+  hpRolls: Record<number, number>;
+  choices: {
+    subclassId: string | null;
+    asiOrFeat: Record<number, ASIOrFeatChoice>;
+  };
+  changesSummary: LevelingChangeSummary[];
+}
+
 const DEFAULT_ABILITY_GEN: AbilityGeneration = {
   method: null,
   rolls: null,
@@ -37,6 +62,20 @@ const DEFAULT_ABILITY_GEN: AbilityGeneration = {
 const DEFAULT_SCORES: Record<AbilityKey, number> = { str: 8, dex: 8, con: 8, int: 8, wis: 8, cha: 8 };
 const DEFAULT_RACIAL: Record<AbilityKey, number> = { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 };
 const DEFAULT_BG_BONUSES: Record<AbilityKey, number> = { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 };
+const DEFAULT_ASI_BONUSES: Record<AbilityKey, number> = { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 };
+
+const DEFAULT_LEVELING: LevelingState = {
+  pending: false,
+  fromLevel: 1,
+  toLevel: 1,
+  hpMethod: null,
+  hpRolls: {},
+  choices: {
+    subclassId: null,
+    asiOrFeat: {},
+  },
+  changesSummary: [],
+};
 
 export interface CharacterState {
   name: string;
@@ -52,6 +91,7 @@ export interface CharacterState {
   raceAbilityChoices: Partial<Record<AbilityKey, number>>;
   backgroundBonuses: Record<AbilityKey, number>;
   backgroundAbilityChoices: Partial<Record<AbilityKey, number>>;
+  asiBonuses: Record<AbilityKey, number>;
   abilityMods: Record<AbilityKey, number>;
   proficiencyBonus: number;
   savingThrows: string[];
@@ -82,6 +122,7 @@ export interface CharacterState {
   equipped: EquippedState;
   gold: { gp: number };
   attacks: AttackEntry[];
+  leveling: LevelingState;
 }
 
 const DEFAULT_CHARACTER: CharacterState = {
@@ -98,6 +139,7 @@ const DEFAULT_CHARACTER: CharacterState = {
   raceAbilityChoices: {},
   backgroundBonuses: { ...DEFAULT_BG_BONUSES },
   backgroundAbilityChoices: {},
+  asiBonuses: { ...DEFAULT_ASI_BONUSES },
   abilityMods: { str: -1, dex: -1, con: -1, int: -1, wis: -1, cha: -1 },
   proficiencyBonus: 2,
   savingThrows: [],
@@ -123,6 +165,7 @@ const DEFAULT_CHARACTER: CharacterState = {
   equipped: { armor: null, shield: null, weapons: [] },
   gold: { gp: 0 },
   attacks: [],
+  leveling: { ...DEFAULT_LEVELING },
 };
 
 interface CharacterActions {

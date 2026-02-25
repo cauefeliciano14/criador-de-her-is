@@ -27,7 +27,7 @@ export function SummaryPanel() {
   const isSpellcaster = cls?.spellcasting !== null;
   const visibleSteps = getVisibleSteps(isSpellcaster);
 
-  const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses);
+  const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses);
   const hasRaceBonus = ABILITIES.some((a) => char.racialBonuses[a] !== 0);
   const hasBgBonus = ABILITIES.some((a) => char.backgroundBonuses[a] !== 0);
   const hasAnyBonus = hasRaceBonus || hasBgBonus;

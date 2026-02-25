@@ -57,7 +57,7 @@ export function StepSpells() {
     return map[spellcastingAbility] ?? null;
   }, [spellcastingAbility]);
 
-  const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses);
+  const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses);
   const abilityMod = abilityKey ? calcAbilityMod(finalScores[abilityKey]) : 0;
   const profBonus = char.proficiencyBonus;
   const spellSaveDC = sc ? 8 + profBonus + abilityMod : 0;
