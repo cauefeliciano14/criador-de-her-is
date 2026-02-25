@@ -1,10 +1,11 @@
-import { Info, CheckCircle2, Star, Wand2 } from "lucide-react";
+import { Info, CheckCircle2, Star, Wand2, Shield, Swords, Coins } from "lucide-react";
 import { useCharacterStore } from "@/state/characterStore";
 import { useBuilderStore } from "@/state/builderStore";
 import { races } from "@/data/races";
 import { classes } from "@/data/classes";
 import { backgrounds } from "@/data/backgrounds";
 import { spells as spellsData } from "@/data/spells";
+import { itemsById } from "@/data/items";
 import {
   ABILITY_SHORT,
   ABILITIES,
@@ -31,8 +32,11 @@ export function SummaryPanel() {
   const hasBgBonus = ABILITIES.some((a) => char.backgroundBonuses[a] !== 0);
   const hasAnyBonus = hasRaceBonus || hasBgBonus;
 
-  // Origin feat
   const originFeat = char.features.find((f) => f.sourceType === "background" && f.tags?.includes("originFeat"));
+
+  // Equipment info
+  const equippedArmorItem = char.equipped?.armor ? itemsById[char.equipped.armor] : null;
+  const equippedShieldItem = char.equipped?.shield ? itemsById[char.equipped.shield] : null;
 
   return (
     <aside className="w-64 shrink-0 space-y-4 p-4 overflow-y-auto">
@@ -139,6 +143,74 @@ export function SummaryPanel() {
         </div>
       )}
 
+      {/* Equipment & AC */}
+      {(equippedArmorItem || equippedShieldItem || char.attacks.length > 0 || (char.gold?.gp ?? 0) > 0) && (
+        <div className="rounded-lg border bg-card p-4">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+            <Shield className="h-3.5 w-3.5 text-primary" />
+            Equipamento
+          </h2>
+          <div className="space-y-1.5 text-xs">
+            {equippedArmorItem && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Armadura</span>
+                <span className="font-medium">{equippedArmorItem.name}</span>
+              </div>
+            )}
+            {equippedShieldItem && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Escudo</span>
+                <span className="font-medium">{equippedShieldItem.name}</span>
+              </div>
+            )}
+            {(char.gold?.gp ?? 0) > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground flex items-center gap-1"><Coins className="h-3 w-3" /> Ouro</span>
+                <span className="font-medium text-warning">{char.gold.gp} PO</span>
+              </div>
+            )}
+          </div>
+          {/* Attacks */}
+          {char.attacks.length > 0 && (
+            <div className="mt-2 pt-2 border-t">
+              <p className="text-[10px] uppercase text-muted-foreground mb-1 flex items-center gap-1">
+                <Swords className="h-3 w-3" /> Ataques
+              </p>
+              <div className="space-y-1">
+                {char.attacks.map((atk) => (
+                  <div key={atk.weaponId} className="text-[11px]">
+                    <span className="font-medium">{atk.name}</span>
+                    <span className="text-muted-foreground ml-1">
+                      {atk.attackBonus >= 0 ? "+" : ""}{atk.attackBonus} | {atk.damage.split(" (")[0]}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Inventory summary */}
+          {char.inventory.length > 0 && (
+            <div className="mt-2 pt-2 border-t">
+              <p className="text-[10px] uppercase text-muted-foreground mb-1">Inventário ({char.inventory.length})</p>
+              <div className="flex flex-wrap gap-1">
+                {char.inventory.slice(0, 5).map((entry) => {
+                  const item = itemsById[entry.itemId];
+                  return (
+                    <span key={entry.itemId} className="rounded bg-secondary px-1.5 py-0.5 text-[10px]">
+                      {item?.name ?? entry.notes ?? entry.itemId}
+                      {entry.quantity > 1 && ` ×${entry.quantity}`}
+                    </span>
+                  );
+                })}
+                {char.inventory.length > 5 && (
+                  <span className="text-[10px] text-muted-foreground">+{char.inventory.length - 5} mais</span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Spellcasting */}
       {isSpellcaster && cls?.spellcasting && (
         <div className="rounded-lg border bg-card p-4">
@@ -160,7 +232,6 @@ export function SummaryPanel() {
               <span className="font-medium">+{char.spells.spellAttackBonus}</span>
             </div>
           </div>
-          {/* Slots */}
           {char.spells.slots.length > 0 && (
             <div className="mt-2 pt-2 border-t">
               <p className="text-[10px] uppercase text-muted-foreground mb-1">Slots</p>
@@ -173,7 +244,6 @@ export function SummaryPanel() {
               </div>
             </div>
           )}
-          {/* Cantrips */}
           {char.spells.cantrips.length > 0 && (
             <div className="mt-2 pt-2 border-t">
               <p className="text-[10px] uppercase text-muted-foreground mb-1">Truques</p>
@@ -189,7 +259,6 @@ export function SummaryPanel() {
               </div>
             </div>
           )}
-          {/* Prepared/Known */}
           {char.spells.prepared.length > 0 && (
             <div className="mt-2 pt-2 border-t">
               <p className="text-[10px] uppercase text-muted-foreground mb-1">
