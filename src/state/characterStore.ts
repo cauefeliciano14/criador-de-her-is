@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { recalcDerivedStats, type AbilityKey, ABILITIES } from "@/utils/calculations";
+import type { InventoryEntry, EquippedState, AttackEntry } from "@/data/items";
 
 export type AbilityMethod = "standard" | "pointBuy" | "roll" | null;
 
@@ -77,6 +78,10 @@ export interface CharacterState {
     spellAttackBonus: number;
   };
   equipment: string[];
+  inventory: InventoryEntry[];
+  equipped: EquippedState;
+  gold: { gp: number };
+  attacks: AttackEntry[];
 }
 
 const DEFAULT_CHARACTER: CharacterState = {
@@ -114,6 +119,10 @@ const DEFAULT_CHARACTER: CharacterState = {
     spellAttackBonus: 0,
   },
   equipment: [],
+  inventory: [],
+  equipped: { armor: null, shield: null, weapons: [] },
+  gold: { gp: 0 },
+  attacks: [],
 };
 
 interface CharacterActions {
