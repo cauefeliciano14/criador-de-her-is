@@ -185,7 +185,7 @@ export function validateCharacterCompleteness(char: CharacterState): ValidationR
     }
 
     // Prepared/known limit
-    const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses);
+    const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses);
     const scMod = scKey ? calcAbilityMod(finalScores[scKey]) : 0;
     let spellLimit = 0;
     if (sc.type === "prepared") {

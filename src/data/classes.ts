@@ -48,6 +48,8 @@ export interface ClassData {
   spellcasting: SpellcastingData | null;
   featuresByLevel: FeaturesByLevel[];
   subclasses: SubclassData[];
+  subclassLevel?: number;
+  asiLevels: number[];
 }
 
 export const classes: ClassData[] = [
@@ -84,6 +86,8 @@ export const classes: ClassData[] = [
       },
     ],
     spellcasting: null,
+    subclassLevel: 3,
+    asiLevels: [4, 8, 12, 16, 19],
     featuresByLevel: [
       {
         level: 1,
@@ -182,6 +186,8 @@ export const classes: ClassData[] = [
         gold: 55,
       },
     ],
+    subclassLevel: 2,
+    asiLevels: [4, 8, 12, 16, 19],
     spellcasting: {
       ability: "Inteligência",
       type: "prepared",

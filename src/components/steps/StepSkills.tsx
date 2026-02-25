@@ -26,7 +26,7 @@ export function StepSkills() {
   const race = races.find((r) => r.id === char.race);
   const subrace = race?.subraces.find((sr) => sr.id === char.subrace);
 
-  const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses);
+  const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses);
 
   // --- Derive sources ---
   const bgSkills = bg?.skills ?? [];

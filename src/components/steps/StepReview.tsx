@@ -34,8 +34,8 @@ export function StepReview() {
   const isSpellcaster = cls?.spellcasting != null;
 
   const finalScores = useMemo(
-    () => getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses),
-    [char.abilityScores, char.racialBonuses, char.backgroundBonuses]
+    () => getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses),
+    [char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses]
   );
 
   const validation = useMemo(() => validateCharacterCompleteness(char), [
