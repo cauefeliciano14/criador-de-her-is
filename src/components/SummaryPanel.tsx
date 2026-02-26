@@ -24,7 +24,7 @@ export function SummaryPanel() {
   const subrace = race?.subraces.find((sr) => sr.id === char.subrace);
   const cls = classes.find((c) => c.id === char.class);
   const bg = backgrounds.find((b) => b.id === char.background);
-  const isSpellcaster = cls?.spellcasting !== null;
+  const isSpellcaster = cls?.spellcasting != null;
   const visibleSteps = getVisibleSteps(isSpellcaster);
 
   const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses);
@@ -34,15 +34,14 @@ export function SummaryPanel() {
 
   const originFeat = char.features.find((f) => f.sourceType === "background" && f.tags?.includes("originFeat"));
 
-  // Equipment info
   const equippedArmorItem = char.equipped?.armor ? itemsById[char.equipped.armor] : null;
   const equippedShieldItem = char.equipped?.shield ? itemsById[char.equipped.shield] : null;
 
   return (
-    <aside className="w-64 shrink-0 space-y-4 p-4 overflow-y-auto">
+    <aside className="w-64 shrink-0 space-y-3 p-3 overflow-y-auto border-l border-border/40 bg-background/50">
       {/* Character Summary */}
-      <div className="rounded-lg border bg-card p-4">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+      <div className="card-elevated rounded-xl p-4">
+        <h2 className="heading-display mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-primary">
           Ficha Resumida
         </h2>
         <div className="space-y-2 text-sm">
@@ -50,16 +49,18 @@ export function SummaryPanel() {
           <Row label="Classe" value={cls?.name} />
           <Row label="Antecedente" value={bg?.name} />
           <Divider />
-          <Row label="PV" value={String(char.hitPoints.max)} />
-          <Row label="CA" value={String(char.armorClass)} />
-          <Row label="Desl." value={`${char.speed}m`} />
-          <Row label="Prof." value={`+${char.proficiencyBonus}`} />
+          <div className="grid grid-cols-2 gap-2">
+            <StatMini label="PV" value={String(char.hitPoints.max)} color="text-success" />
+            <StatMini label="CA" value={String(char.armorClass)} color="text-primary" />
+            <StatMini label="Desl." value={`${char.speed}m`} />
+            <StatMini label="Prof." value={`+${char.proficiencyBonus}`} color="text-info" />
+          </div>
         </div>
       </div>
 
       {/* Ability Scores */}
-      <div className="rounded-lg border bg-card p-4">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+      <div className="card-elevated rounded-xl p-4">
+        <h2 className="heading-display mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-primary">
           Atributos
         </h2>
         {hasAnyBonus && (
@@ -95,20 +96,20 @@ export function SummaryPanel() {
                       {raceB > 0 ? (
                         <span className="text-primary font-medium">+{raceB}</span>
                       ) : (
-                        <span className="text-muted-foreground">—</span>
+                        <span className="text-muted-foreground/40">—</span>
                       )}
                     </div>
                   )}
                   {hasBgBonus && (
                     <div className="text-center text-xs">
                       {bgB > 0 ? (
-                        <span className="text-accent-foreground font-medium">+{bgB}</span>
+                        <span className="text-accent font-medium">+{bgB}</span>
                       ) : (
-                        <span className="text-muted-foreground">—</span>
+                        <span className="text-muted-foreground/40">—</span>
                       )}
                     </div>
                   )}
-                  <div className="rounded bg-secondary/40 py-1 text-center">
+                  <div className="rounded-md bg-secondary/60 py-1 text-center">
                     <span className="text-sm font-bold">{total}</span>
                     <span className={`text-[10px] ml-0.5 ${mod >= 0 ? "text-success" : "text-destructive"}`}>
                       ({mod >= 0 ? "+" : ""}{mod})
@@ -119,10 +120,10 @@ export function SummaryPanel() {
             }
 
             return (
-              <div key={a} className="rounded border bg-secondary/40 p-2 text-center inline-block w-[calc(33.33%-4px)] mr-1 mb-1">
+              <div key={a} className="rounded-lg border border-border/50 bg-secondary/30 p-2 text-center inline-block w-[calc(33.33%-4px)] mr-1 mb-1">
                 <p className="text-[10px] uppercase text-muted-foreground">{ABILITY_SHORT[a]}</p>
                 <p className="text-sm font-bold">{total}</p>
-                <p className="text-[10px] text-muted-foreground">
+                <p className={`text-[10px] ${mod >= 0 ? "text-success" : "text-destructive"}`}>
                   {mod >= 0 ? "+" : ""}{mod}
                 </p>
               </div>
@@ -133,9 +134,9 @@ export function SummaryPanel() {
 
       {/* Origin Feat */}
       {originFeat && (
-        <div className="rounded-lg border bg-card p-4">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-            <Star className="h-3.5 w-3.5 text-primary" />
+        <div className="card-elevated rounded-xl p-4">
+          <h2 className="mb-2 text-[10px] heading-display font-semibold uppercase tracking-[0.15em] text-primary flex items-center gap-1.5">
+            <Star className="h-3.5 w-3.5" />
             Talento
           </h2>
           <p className="text-xs font-medium">{originFeat.name}</p>
@@ -145,9 +146,9 @@ export function SummaryPanel() {
 
       {/* Equipment & AC */}
       {(equippedArmorItem || equippedShieldItem || char.attacks.length > 0 || (char.gold?.gp ?? 0) > 0) && (
-        <div className="rounded-lg border bg-card p-4">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-            <Shield className="h-3.5 w-3.5 text-primary" />
+        <div className="card-elevated rounded-xl p-4">
+          <h2 className="mb-2 text-[10px] heading-display font-semibold uppercase tracking-[0.15em] text-primary flex items-center gap-1.5">
+            <Shield className="h-3.5 w-3.5" />
             Equipamento
           </h2>
           <div className="space-y-1.5 text-xs">
@@ -166,13 +167,12 @@ export function SummaryPanel() {
             {(char.gold?.gp ?? 0) > 0 && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground flex items-center gap-1"><Coins className="h-3 w-3" /> Ouro</span>
-                <span className="font-medium text-warning">{char.gold.gp} PO</span>
+                <span className="font-medium text-accent">{char.gold.gp} PO</span>
               </div>
             )}
           </div>
-          {/* Attacks */}
           {char.attacks.length > 0 && (
-            <div className="mt-2 pt-2 border-t">
+            <div className="mt-2 pt-2 border-t border-border/40">
               <p className="text-[10px] uppercase text-muted-foreground mb-1 flex items-center gap-1">
                 <Swords className="h-3 w-3" /> Ataques
               </p>
@@ -188,15 +188,14 @@ export function SummaryPanel() {
               </div>
             </div>
           )}
-          {/* Inventory summary */}
           {char.inventory.length > 0 && (
-            <div className="mt-2 pt-2 border-t">
+            <div className="mt-2 pt-2 border-t border-border/40">
               <p className="text-[10px] uppercase text-muted-foreground mb-1">Inventário ({char.inventory.length})</p>
               <div className="flex flex-wrap gap-1">
                 {char.inventory.slice(0, 5).map((entry) => {
                   const item = itemsById[entry.itemId];
                   return (
-                    <span key={entry.itemId} className="rounded bg-secondary px-1.5 py-0.5 text-[10px]">
+                    <span key={entry.itemId} className="rounded-md bg-secondary/60 px-1.5 py-0.5 text-[10px]">
                       {item?.name ?? entry.notes ?? entry.itemId}
                       {entry.quantity > 1 && ` ×${entry.quantity}`}
                     </span>
@@ -213,9 +212,9 @@ export function SummaryPanel() {
 
       {/* Spellcasting */}
       {isSpellcaster && cls?.spellcasting && (
-        <div className="rounded-lg border bg-card p-4">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-            <Wand2 className="h-3.5 w-3.5 text-primary" />
+        <div className="card-elevated rounded-xl p-4">
+          <h2 className="mb-2 text-[10px] heading-display font-semibold uppercase tracking-[0.15em] text-primary flex items-center gap-1.5">
+            <Wand2 className="h-3.5 w-3.5" />
             Conjuração
           </h2>
           <div className="space-y-1.5 text-xs">
@@ -233,11 +232,11 @@ export function SummaryPanel() {
             </div>
           </div>
           {char.spells.slots.length > 0 && (
-            <div className="mt-2 pt-2 border-t">
+            <div className="mt-2 pt-2 border-t border-border/40">
               <p className="text-[10px] uppercase text-muted-foreground mb-1">Slots</p>
               <div className="flex gap-2 flex-wrap">
                 {char.spells.slots.map((count, i) => count > 0 && (
-                  <span key={i} className="rounded bg-secondary px-1.5 py-0.5 text-[11px]">
+                  <span key={i} className="rounded-md bg-secondary/60 px-1.5 py-0.5 text-[11px]">
                     {i + 1}º: {count}
                   </span>
                 ))}
@@ -245,13 +244,13 @@ export function SummaryPanel() {
             </div>
           )}
           {char.spells.cantrips.length > 0 && (
-            <div className="mt-2 pt-2 border-t">
+            <div className="mt-2 pt-2 border-t border-border/40">
               <p className="text-[10px] uppercase text-muted-foreground mb-1">Truques</p>
               <div className="flex flex-wrap gap-1">
                 {char.spells.cantrips.map((id) => {
                   const sp = spellsData.find((s) => s.id === id);
                   return (
-                    <span key={id} className="rounded bg-secondary px-1.5 py-0.5 text-[11px]">
+                    <span key={id} className="rounded-md bg-secondary/60 px-1.5 py-0.5 text-[11px]">
                       {sp?.name ?? id}
                     </span>
                   );
@@ -260,7 +259,7 @@ export function SummaryPanel() {
             </div>
           )}
           {char.spells.prepared.length > 0 && (
-            <div className="mt-2 pt-2 border-t">
+            <div className="mt-2 pt-2 border-t border-border/40">
               <p className="text-[10px] uppercase text-muted-foreground mb-1">
                 {cls.spellcasting.type === "known" || cls.spellcasting.type === "pact" ? "Conhecidas" : "Preparadas"}
               </p>
@@ -268,7 +267,7 @@ export function SummaryPanel() {
                 {char.spells.prepared.map((id) => {
                   const sp = spellsData.find((s) => s.id === id);
                   return (
-                    <span key={id} className="rounded bg-secondary px-1.5 py-0.5 text-[11px]">
+                    <span key={id} className="rounded-md bg-secondary/60 px-1.5 py-0.5 text-[11px]">
                       {sp?.name ?? id}
                     </span>
                   );
@@ -281,13 +280,13 @@ export function SummaryPanel() {
 
       {/* Languages */}
       {char.proficiencies.languages.length > 0 && (
-        <div className="rounded-lg border bg-card p-4">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+        <div className="card-elevated rounded-xl p-4">
+          <h2 className="heading-display mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-primary">
             Idiomas
           </h2>
           <div className="flex flex-wrap gap-1">
             {[...char.proficiencies.languages].sort((a, b) => a.localeCompare(b, "pt-BR")).map((l) => (
-              <span key={l} className="rounded bg-secondary px-1.5 py-0.5 text-[11px]">{l}</span>
+              <span key={l} className="rounded-md bg-secondary/60 px-1.5 py-0.5 text-[11px]">{l}</span>
             ))}
           </div>
         </div>
@@ -295,21 +294,21 @@ export function SummaryPanel() {
 
       {/* Skills */}
       {char.skills.length > 0 && (
-        <div className="rounded-lg border bg-card p-4">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+        <div className="card-elevated rounded-xl p-4">
+          <h2 className="heading-display mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-primary">
             Perícias
           </h2>
           <div className="flex flex-wrap gap-1">
             {[...char.skills].sort((a, b) => a.localeCompare(b, "pt-BR")).map((s) => (
-              <span key={s} className="rounded bg-secondary px-1.5 py-0.5 text-[11px]">{s}</span>
+              <span key={s} className="rounded-md bg-secondary/60 px-1.5 py-0.5 text-[11px]">{s}</span>
             ))}
           </div>
         </div>
       )}
 
       {/* Pending */}
-      <div className="rounded-lg border bg-card p-4">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+      <div className="card-elevated rounded-xl p-4">
+        <h2 className="heading-display mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-primary">
           Pendências
         </h2>
         <ul className="space-y-1.5 text-xs">
@@ -356,6 +355,15 @@ function Row({ label, value, extra }: { label: string; value?: string; extra?: s
   );
 }
 
+function StatMini({ label, value, color }: { label: string; value: string; color?: string }) {
+  return (
+    <div className="rounded-lg bg-secondary/40 p-2 text-center">
+      <p className="text-[9px] uppercase text-muted-foreground">{label}</p>
+      <p className={`text-lg font-bold ${color ?? ""}`}>{value}</p>
+    </div>
+  );
+}
+
 function Divider() {
-  return <div className="border-t my-1" />;
+  return <div className="border-t border-border/40 my-1" />;
 }

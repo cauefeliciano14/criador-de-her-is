@@ -35,8 +35,8 @@ interface BuilderState {
   requiredMissing: Record<string, string[]>;
   lastSavedAt: string | null;
   goToStep: (step: StepId) => void;
-  nextStep: () => void;
-  prevStep: () => void;
+  nextStep: (isSpellcaster?: boolean) => void;
+  prevStep: (isSpellcaster?: boolean) => void;
   completeStep: (step: StepId) => void;
   uncompleteStep: (step: StepId) => void;
   setMissing: (step: StepId, items: string[]) => void;
@@ -56,15 +56,15 @@ export const useBuilderStore = create<BuilderState>()(
     (set, get) => ({
       ...DEFAULT_BUILDER,
       goToStep: (step) => set({ currentStep: step }),
-      nextStep: () => {
+      nextStep: (isSpellcaster?: boolean) => {
         const s = get();
-        const steps = s.getVisibleSteps(true);
+        const steps = s.getVisibleSteps(isSpellcaster ?? false);
         const idx = steps.findIndex((st) => st.id === s.currentStep);
         if (idx < steps.length - 1) set({ currentStep: steps[idx + 1].id });
       },
-      prevStep: () => {
+      prevStep: (isSpellcaster?: boolean) => {
         const s = get();
-        const steps = s.getVisibleSteps(true);
+        const steps = s.getVisibleSteps(isSpellcaster ?? false);
         const idx = steps.findIndex((st) => st.id === s.currentStep);
         if (idx > 0) set({ currentStep: steps[idx - 1].id });
       },
