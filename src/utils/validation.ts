@@ -179,11 +179,13 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
       const val = cfc[check.key];
       const chosen = Array.isArray(val) ? val.length : (typeof val === "string" ? 1 : 0);
       if (chosen < check.count) {
+        const expertiseStepId = useChoicesStep ? "choices" : "sheet";
+        const expertiseStepNumber = useChoicesStep ? 5 : 6;
         missing.push({
           id: `expertise-${check.key}`,
           label: `${check.label}: ${chosen}/${check.count} escolhido(s)`,
-          stepId: useChoicesStep ? "choices" : "sheet",
-          stepNumber: useChoicesStep ? 5 : 6,
+          stepId: expertiseStepId,
+          stepNumber: expertiseStepNumber,
           severity: "required",
         });
       }
@@ -331,4 +333,3 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
     warnings,
   };
 }
-
