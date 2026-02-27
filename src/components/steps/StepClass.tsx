@@ -1,7 +1,7 @@
 import { useCharacterStore, mergeUnique, replaceFeatures, type NormalizedFeature } from "@/state/characterStore";
 import { useBuilderStore } from "@/state/builderStore";
 import { classes, type ClassData } from "@/data/classes";
-import { CheckCircle2, Search, Info, ChevronDown, ChevronUp, Swords, Shield, Package, AlertTriangle, BookOpen, Lock } from "lucide-react";
+import { CheckCircle2, Search, Info, ChevronDown, ChevronUp, Swords, Shield, Package, AlertTriangle, BookOpen, Lock, Loader2 } from "lucide-react";
 import { getChoicesRequirements } from "@/utils/choices";
 import { instruments } from "@/data/instruments";
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -10,9 +10,12 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function StepClass() {
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [isFiltering, setIsFiltering] = useState(false);
   const [expandedFeatures, setExpandedFeatures] = useState<Record<string, boolean>>({});
 
   const classId = useCharacterStore((s) => s.class);
@@ -26,9 +29,21 @@ export function StepClass() {
   const uncompleteStep = useBuilderStore((s) => s.uncompleteStep);
   const setMissing = useBuilderStore((s) => s.setMissing);
 
-  const sorted = [...classes]
-    .filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
-    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  useEffect(() => {
+    setIsFiltering(true);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search.trim().toLowerCase());
+      setIsFiltering(false);
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const sorted = useMemo(
+    () => [...classes]
+      .filter((c) => c.name.toLowerCase().includes(debouncedSearch))
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+    [debouncedSearch]
+  );
 
   const selectedClass = classes.find((c) => c.id === classId);
   const choiceSelections = useCharacterStore((s) => s.choiceSelections);
@@ -332,8 +347,17 @@ export function StepClass() {
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-md border bg-secondary py-2 pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           />
+          {isFiltering && (
+            <Loader2 className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-muted-foreground" />
+          )}
         </div>
         <div className="space-y-2">
+          {isFiltering && (
+            <div className="space-y-2 pb-1" aria-label="Filtrando classes">
+              <Skeleton className="h-20 w-full rounded-lg" />
+              <Skeleton className="h-20 w-full rounded-lg" />
+            </div>
+          )}
           {sorted.map((cls) => {
             const isSelected = classId === cls.id;
             return (
