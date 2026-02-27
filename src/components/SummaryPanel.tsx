@@ -1,4 +1,8 @@
-import { Info, CheckCircle2, Star, Wand2, Shield, Swords, Coins } from "lucide-react";
+import { useState } from "react";
+import {
+  Info, CheckCircle2, Star, Wand2, Shield, Swords, Coins, Package,
+  Activity, BookOpen, AlertTriangle,
+} from "lucide-react";
 import { useCharacterStore } from "@/state/characterStore";
 import { useBuilderStore } from "@/state/builderStore";
 import { races } from "@/data/races";
@@ -6,364 +10,457 @@ import { classes } from "@/data/classes";
 import { backgrounds } from "@/data/backgrounds";
 import { spells as spellsData } from "@/data/spells";
 import { itemsById } from "@/data/items";
+import { skills as skillsDataList } from "@/data/skills";
 import {
-  ABILITY_SHORT,
-  ABILITIES,
-  calcAbilityMod,
-  getFinalAbilityScores,
-  type AbilityKey,
+  ABILITY_SHORT, ABILITIES, calcAbilityMod, getFinalAbilityScores,
+  type AbilityKey, ALL_SKILLS,
 } from "@/utils/calculations";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function SummaryPanel() {
   const char = useCharacterStore();
   const completedSteps = useBuilderStore((s) => s.completedSteps);
   const requiredMissing = useBuilderStore((s) => s.requiredMissing);
   const getVisibleSteps = useBuilderStore((s) => s.getVisibleSteps);
+  const goToStep = useBuilderStore((s) => s.goToStep);
 
   const race = races.find((r) => r.id === char.race);
   const subrace = race?.subraces.find((sr) => sr.id === char.subrace);
   const cls = classes.find((c) => c.id === char.class);
   const bg = backgrounds.find((b) => b.id === char.background);
-  const isSpellcaster = cls?.spellcasting != null;
-  const visibleSteps = getVisibleSteps(isSpellcaster);
+  const isSpellcaster = cls?.spellcasting !== null;
+  const visibleSteps = getVisibleSteps();
 
-  const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses);
-  const hasRaceBonus = ABILITIES.some((a) => char.racialBonuses[a] !== 0);
-  const hasBgBonus = ABILITIES.some((a) => char.backgroundBonuses[a] !== 0);
-  const hasAnyBonus = hasRaceBonus || hasBgBonus;
+  const finalScores = getFinalAbilityScores(
+    char.abilityScores, char.racialBonuses, char.backgroundBonuses,
+    char.asiBonuses, char.featAbilityBonuses
+  );
 
-  const originFeat = char.features.find((f) => f.sourceType === "background" && f.tags?.includes("originFeat"));
-
-  const equippedArmorItem = char.equipped?.armor ? itemsById[char.equipped.armor] : null;
-  const equippedShieldItem = char.equipped?.shield ? itemsById[char.equipped.shield] : null;
+  const [activeTab, setActiveTab] = useState("stats");
 
   return (
-    <aside className="w-64 shrink-0 space-y-3 p-3 overflow-y-auto border-l border-border/40 bg-background/50">
-      {/* Character Summary */}
-      <div className="card-elevated rounded-xl p-4">
-        <h2 className="heading-display mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-primary">
-          Ficha Resumida
-        </h2>
-        <div className="space-y-2 text-sm">
-          <Row label="Raça" value={race?.name} extra={subrace?.name} />
-          <Row label="Classe" value={cls?.name} />
-          <Row label="Antecedente" value={bg?.name} />
-          <Divider />
-          <div className="grid grid-cols-2 gap-2">
-            <StatMini label="PV" value={String(char.hitPoints.max)} color="text-success" />
-            <StatMini label="CA" value={String(char.armorClass)} color="text-primary" />
-            <StatMini label="Desl." value={`${char.speed}m`} />
-            <StatMini label="Prof." value={`+${char.proficiencyBonus}`} color="text-info" />
-          </div>
+    <aside className="w-72 shrink-0 border-l flex flex-col overflow-hidden">
+      {/* Identity header */}
+      <div className="border-b bg-card p-3">
+        <input
+          type="text"
+          placeholder="Nome do Personagem"
+          value={char.name}
+          onChange={(e) => char.setField("name", e.target.value)}
+          className="w-full bg-transparent text-sm font-bold placeholder:text-muted-foreground/50 focus:outline-none border-b border-transparent focus:border-primary pb-0.5 transition-colors"
+          aria-label="Nome do personagem"
+        />
+        <div className="flex flex-wrap gap-1 mt-1.5">
+          {race && <MiniTag>{race.name}{subrace ? ` (${subrace.name})` : ""}</MiniTag>}
+          {cls && <MiniTag>{cls.name} {char.level}</MiniTag>}
+          {bg && <MiniTag>{bg.name}</MiniTag>}
+          {!race && !cls && <span className="text-[10px] text-muted-foreground italic">Nenhuma escolha feita</span>}
         </div>
       </div>
 
-      {/* Ability Scores */}
-      <div className="card-elevated rounded-xl p-4">
-        <h2 className="heading-display mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-primary">
-          Atributos
-        </h2>
-        {hasAnyBonus && (
-          <div className={`grid gap-1 mb-2 text-[9px] text-muted-foreground uppercase ${
-            hasRaceBonus && hasBgBonus ? "grid-cols-5" : "grid-cols-4"
-          }`}>
-            <span></span>
-            <span className="text-center">Base</span>
-            {hasRaceBonus && <span className="text-center">Raça</span>}
-            {hasBgBonus && <span className="text-center">Antec.</span>}
-            <span className="text-center">Total</span>
-          </div>
-        )}
-        <div className="space-y-1.5">
-          {ABILITIES.map((a) => {
-            const base = char.abilityScores[a];
-            const raceB = char.racialBonuses[a];
-            const bgB = char.backgroundBonuses[a];
-            const total = finalScores[a];
-            const mod = calcAbilityMod(total);
+      {/* Stat bar - always visible */}
+      <div className="grid grid-cols-4 border-b bg-secondary/30">
+        <StatMini label="CA" value={String(char.armorClass)} />
+        <StatMini label="PV" value={String(char.hitPoints.max)} />
+        <StatMini label="Desl." value={`${char.speed}m`} />
+        <StatMini label="Prof." value={`+${char.proficiencyBonus}`} />
+      </div>
 
-            if (hasAnyBonus) {
-              return (
-                <div key={a} className={`grid gap-1 items-center ${
-                  hasRaceBonus && hasBgBonus ? "grid-cols-5" : "grid-cols-4"
-                }`}>
-                  <div className="text-[10px] uppercase text-muted-foreground font-medium">
-                    {ABILITY_SHORT[a]}
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+        <TabsList className="h-9 w-full rounded-none border-b bg-transparent p-0 justify-start gap-0">
+          <TabsTrigger value="stats" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-xs h-9 px-3">
+            <Activity className="h-3.5 w-3.5 mr-1" />Stats
+          </TabsTrigger>
+          <TabsTrigger value="actions" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-xs h-9 px-3">
+            <Swords className="h-3.5 w-3.5 mr-1" />Ações
+          </TabsTrigger>
+          {isSpellcaster && (
+            <TabsTrigger value="spells" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-xs h-9 px-3">
+              <Wand2 className="h-3.5 w-3.5 mr-1" />Magias
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="inventory" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-xs h-9 px-3">
+            <Package className="h-3.5 w-3.5 mr-1" />Inv.
+          </TabsTrigger>
+        </TabsList>
+
+        <ScrollArea className="flex-1">
+          {/* ═══ STATS TAB ═══ */}
+          <TabsContent value="stats" className="m-0 p-3 space-y-3">
+            {/* Ability Scores */}
+            <div className="grid grid-cols-3 gap-1.5">
+              {ABILITIES.map((a) => {
+                const total = finalScores[a];
+                const mod = calcAbilityMod(total);
+                return (
+                  <div key={a} className="rounded-lg border bg-secondary/30 p-2 text-center">
+                    <p className="text-[9px] uppercase text-muted-foreground font-semibold tracking-wider">
+                      {ABILITY_SHORT[a]}
+                    </p>
+                    <p className="text-lg font-bold leading-tight">{total}</p>
+                    <p className={`text-[10px] font-semibold ${mod >= 0 ? "text-success" : "text-destructive"}`}>
+                      {mod >= 0 ? "+" : ""}{mod}
+                    </p>
                   </div>
-                  <div className="text-center text-xs text-muted-foreground">{base}</div>
-                  {hasRaceBonus && (
-                    <div className="text-center text-xs">
-                      {raceB > 0 ? (
-                        <span className="text-primary font-medium">+{raceB}</span>
+                );
+              })}
+            </div>
+
+            {/* Saving Throws */}
+            <PanelSection title="Salvaguardas">
+              <div className="grid grid-cols-2 gap-1">
+                {ABILITIES.map((a) => {
+                  const mod = calcAbilityMod(finalScores[a]);
+                  const prof = char.savingThrows.some(
+                    (st) => st.toLowerCase().startsWith(ABILITY_SHORT[a].toLowerCase().substring(0, 3))
+                  );
+                  const total = mod + (prof ? char.proficiencyBonus : 0);
+                  return (
+                    <div key={a} className={`flex items-center gap-1.5 text-xs py-0.5 ${prof ? "text-foreground" : "text-muted-foreground"}`}>
+                      {prof ? (
+                        <CheckCircle2 className="h-3 w-3 text-success shrink-0" />
                       ) : (
-                        <span className="text-muted-foreground/40">—</span>
+                        <span className="h-3 w-3 rounded-full border border-muted-foreground/30 shrink-0" />
                       )}
+                      <span className="flex-1">{ABILITY_SHORT[a]}</span>
+                      <span className={`font-mono font-bold text-[11px] ${prof ? "text-primary" : ""}`}>
+                        {total >= 0 ? "+" : ""}{total}
+                      </span>
                     </div>
-                  )}
-                  {hasBgBonus && (
-                    <div className="text-center text-xs">
-                      {bgB > 0 ? (
-                        <span className="text-accent font-medium">+{bgB}</span>
+                  );
+                })}
+              </div>
+            </PanelSection>
+
+            {/* Skills */}
+            <PanelSection title="Perícias">
+              <div className="space-y-0.5">
+                {ALL_SKILLS.map((skill) => {
+                  const mod = calcAbilityMod(finalScores[skill.ability]);
+                  const prof = char.skills.includes(skill.name);
+                  const total = mod + (prof ? char.proficiencyBonus : 0);
+                  return (
+                    <div key={skill.name} className={`flex items-center gap-1.5 text-[11px] py-0.5 ${prof ? "text-foreground" : "text-muted-foreground/60"}`}>
+                      {prof ? (
+                        <CheckCircle2 className="h-2.5 w-2.5 text-success shrink-0" />
                       ) : (
-                        <span className="text-muted-foreground/40">—</span>
+                        <span className="h-2.5 w-2.5 rounded-full border border-muted-foreground/20 shrink-0" />
                       )}
+                      <span className="flex-1 truncate">{skill.name}</span>
+                      <span className="text-[9px] text-muted-foreground/50 mr-1">{ABILITY_SHORT[skill.ability]}</span>
+                      <span className={`font-mono font-bold text-[11px] w-5 text-right ${prof ? "" : "text-muted-foreground/40"}`}>
+                        {total >= 0 ? "+" : ""}{total}
+                      </span>
                     </div>
-                  )}
-                  <div className="rounded-md bg-secondary/60 py-1 text-center">
-                    <span className="text-sm font-bold">{total}</span>
-                    <span className={`text-[10px] ml-0.5 ${mod >= 0 ? "text-success" : "text-destructive"}`}>
-                      ({mod >= 0 ? "+" : ""}{mod})
-                    </span>
-                  </div>
+                  );
+                })}
+              </div>
+            </PanelSection>
+
+            {/* Languages & Proficiencies */}
+            {char.proficiencies.languages.length > 0 && (
+              <PanelSection title="Idiomas">
+                <div className="flex flex-wrap gap-1">
+                  {[...char.proficiencies.languages].sort((a, b) => a.localeCompare(b, "pt-BR")).map((l) => (
+                    <span key={l} className="rounded bg-secondary px-1.5 py-0.5 text-[10px]">{l}</span>
+                  ))}
                 </div>
-              );
-            }
-
-            return (
-              <div key={a} className="rounded-lg border border-border/50 bg-secondary/30 p-2 text-center inline-block w-[calc(33.33%-4px)] mr-1 mb-1">
-                <p className="text-[10px] uppercase text-muted-foreground">{ABILITY_SHORT[a]}</p>
-                <p className="text-sm font-bold">{total}</p>
-                <p className={`text-[10px] ${mod >= 0 ? "text-success" : "text-destructive"}`}>
-                  {mod >= 0 ? "+" : ""}{mod}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Origin Feat */}
-      {originFeat && (
-        <div className="card-elevated rounded-xl p-4">
-          <h2 className="mb-2 text-[10px] heading-display font-semibold uppercase tracking-[0.15em] text-primary flex items-center gap-1.5">
-            <Star className="h-3.5 w-3.5" />
-            Talento
-          </h2>
-          <p className="text-xs font-medium">{originFeat.name}</p>
-          <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-3">{originFeat.description}</p>
-        </div>
-      )}
-
-      {/* Equipment & AC */}
-      {(equippedArmorItem || equippedShieldItem || char.attacks.length > 0 || (char.gold?.gp ?? 0) > 0) && (
-        <div className="card-elevated rounded-xl p-4">
-          <h2 className="mb-2 text-[10px] heading-display font-semibold uppercase tracking-[0.15em] text-primary flex items-center gap-1.5">
-            <Shield className="h-3.5 w-3.5" />
-            Equipamento
-          </h2>
-          <div className="space-y-1.5 text-xs">
-            {equippedArmorItem && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Armadura</span>
-                <span className="font-medium">{equippedArmorItem.name}</span>
-              </div>
+              </PanelSection>
             )}
-            {equippedShieldItem && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Escudo</span>
-                <span className="font-medium">{equippedShieldItem.name}</span>
-              </div>
-            )}
-            {(char.gold?.gp ?? 0) > 0 && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground flex items-center gap-1"><Coins className="h-3 w-3" /> Ouro</span>
-                <span className="font-medium text-accent">{char.gold.gp} PO</span>
-              </div>
-            )}
-          </div>
-          {char.attacks.length > 0 && (
-            <div className="mt-2 pt-2 border-t border-border/40">
-              <p className="text-[10px] uppercase text-muted-foreground mb-1 flex items-center gap-1">
-                <Swords className="h-3 w-3" /> Ataques
-              </p>
-              <div className="space-y-1">
+
+            {/* Pendencies */}
+            <PanelSection title="Pendências">
+              <ul className="space-y-1">
+                {visibleSteps.map((step) => {
+                  const isDone = completedSteps.includes(step.id);
+                  const missing = requiredMissing[step.id] ?? [];
+                  return (
+                    <li key={step.id}>
+                      <button
+                        onClick={() => goToStep(step.id)}
+                        className="flex items-start gap-1.5 w-full text-left hover:bg-secondary/50 rounded px-1 py-0.5 transition-colors"
+                        aria-label={`Ir para ${step.label}`}
+                      >
+                        {isDone ? (
+                          <CheckCircle2 className="h-3 w-3 text-success mt-0.5 shrink-0" />
+                        ) : (
+                          <Info className="h-3 w-3 text-info mt-0.5 shrink-0" />
+                        )}
+                        <div className="min-w-0">
+                          <span className={`text-[11px] ${isDone ? "text-success" : "text-info"}`}>
+                            {step.num}. {step.label}
+                          </span>
+                          {!isDone && missing.length > 0 && (
+                            <p className="text-[9px] text-muted-foreground truncate">
+                              {missing[0]}
+                              {missing.length > 1 && ` (+${missing.length - 1})`}
+                            </p>
+                          )}
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </PanelSection>
+          </TabsContent>
+
+          {/* ═══ ACTIONS TAB ═══ */}
+          <TabsContent value="actions" className="m-0 p-3 space-y-3">
+            {char.attacks.length > 0 ? (
+              <div className="space-y-2">
                 {char.attacks.map((atk) => (
-                  <div key={atk.weaponId} className="text-[11px]">
-                    <span className="font-medium">{atk.name}</span>
-                    <span className="text-muted-foreground ml-1">
-                      {atk.attackBonus >= 0 ? "+" : ""}{atk.attackBonus} | {atk.damage.split(" (")[0]}
-                    </span>
+                  <div key={atk.weaponId} className="rounded-lg border bg-secondary/30 p-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">{atk.name}</span>
+                      {!atk.proficient && (
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <AlertTriangle className="h-3 w-3 text-warning" />
+                          </TooltipTrigger>
+                          <TooltipContent>Não proficiente</TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 mt-1.5 text-center">
+                      <div>
+                        <p className="text-[9px] uppercase text-muted-foreground">Ataque</p>
+                        <p className="text-sm font-bold text-primary">
+                          {atk.attackBonus >= 0 ? "+" : ""}{atk.attackBonus}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] uppercase text-muted-foreground">Dano</p>
+                        <p className="text-xs font-medium">{atk.damage.split(" (")[0]}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] uppercase text-muted-foreground">Alcance</p>
+                        <p className="text-xs text-muted-foreground">{atk.range}</p>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-          {char.inventory.length > 0 && (
-            <div className="mt-2 pt-2 border-t border-border/40">
-              <p className="text-[10px] uppercase text-muted-foreground mb-1">Inventário ({char.inventory.length})</p>
-              <div className="flex flex-wrap gap-1">
-                {char.inventory.slice(0, 5).map((entry) => {
-                  const item = itemsById[entry.itemId];
-                  return (
-                    <span key={entry.itemId} className="rounded-md bg-secondary/60 px-1.5 py-0.5 text-[10px]">
-                      {item?.name ?? entry.notes ?? entry.itemId}
-                      {entry.quantity > 1 && ` ×${entry.quantity}`}
-                    </span>
-                  );
-                })}
-                {char.inventory.length > 5 && (
-                  <span className="text-[10px] text-muted-foreground">+{char.inventory.length - 5} mais</span>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+            ) : (
+              <EmptyState text="Equipe armas para ver ataques" />
+            )}
 
-      {/* Spellcasting */}
-      {isSpellcaster && cls?.spellcasting && (
-        <div className="card-elevated rounded-xl p-4">
-          <h2 className="mb-2 text-[10px] heading-display font-semibold uppercase tracking-[0.15em] text-primary flex items-center gap-1.5">
-            <Wand2 className="h-3.5 w-3.5" />
-            Conjuração
-          </h2>
-          <div className="space-y-1.5 text-xs">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Atributo</span>
-              <span className="font-medium">{cls.spellcasting.ability}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">CD</span>
-              <span className="font-medium">{char.spells.spellSaveDC}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Ataque</span>
-              <span className="font-medium">+{char.spells.spellAttackBonus}</span>
-            </div>
-          </div>
-          {char.spells.slots.length > 0 && (
-            <div className="mt-2 pt-2 border-t border-border/40">
-              <p className="text-[10px] uppercase text-muted-foreground mb-1">Slots</p>
-              <div className="flex gap-2 flex-wrap">
-                {char.spells.slots.map((count, i) => count > 0 && (
-                  <span key={i} className="rounded-md bg-secondary/60 px-1.5 py-0.5 text-[11px]">
-                    {i + 1}º: {count}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          {char.spells.cantrips.length > 0 && (
-            <div className="mt-2 pt-2 border-t border-border/40">
-              <p className="text-[10px] uppercase text-muted-foreground mb-1">Truques</p>
-              <div className="flex flex-wrap gap-1">
-                {char.spells.cantrips.map((id) => {
-                  const sp = spellsData.find((s) => s.id === id);
-                  return (
-                    <span key={id} className="rounded-md bg-secondary/60 px-1.5 py-0.5 text-[11px]">
-                      {sp?.name ?? id}
-                    </span>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          {char.spells.prepared.length > 0 && (
-            <div className="mt-2 pt-2 border-t border-border/40">
-              <p className="text-[10px] uppercase text-muted-foreground mb-1">
-                {cls.spellcasting.type === "known" || cls.spellcasting.type === "pact" ? "Conhecidas" : "Preparadas"}
-              </p>
-              <div className="flex flex-wrap gap-1">
-                {char.spells.prepared.map((id) => {
-                  const sp = spellsData.find((s) => s.id === id);
-                  return (
-                    <span key={id} className="rounded-md bg-secondary/60 px-1.5 py-0.5 text-[11px]">
-                      {sp?.name ?? id}
-                    </span>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Languages */}
-      {char.proficiencies.languages.length > 0 && (
-        <div className="card-elevated rounded-xl p-4">
-          <h2 className="heading-display mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-primary">
-            Idiomas
-          </h2>
-          <div className="flex flex-wrap gap-1">
-            {[...char.proficiencies.languages].sort((a, b) => a.localeCompare(b, "pt-BR")).map((l) => (
-              <span key={l} className="rounded-md bg-secondary/60 px-1.5 py-0.5 text-[11px]">{l}</span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Skills */}
-      {char.skills.length > 0 && (
-        <div className="card-elevated rounded-xl p-4">
-          <h2 className="heading-display mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-primary">
-            Perícias
-          </h2>
-          <div className="flex flex-wrap gap-1">
-            {[...char.skills].sort((a, b) => a.localeCompare(b, "pt-BR")).map((s) => (
-              <span key={s} className="rounded-md bg-secondary/60 px-1.5 py-0.5 text-[11px]">{s}</span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Pending */}
-      <div className="card-elevated rounded-xl p-4">
-        <h2 className="heading-display mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-primary">
-          Pendências
-        </h2>
-        <ul className="space-y-1.5 text-xs">
-          {visibleSteps.map((step) => {
-            const isDone = completedSteps.includes(step.id);
-            const missing = requiredMissing[step.id] ?? [];
-            return (
-              <li key={step.id} className="flex items-start gap-2">
-                {isDone ? (
-                  <CheckCircle2 className="h-3.5 w-3.5 text-success mt-0.5 shrink-0" />
-                ) : (
-                  <Info className="h-3.5 w-3.5 text-info mt-0.5 shrink-0" />
-                )}
-                <div>
-                  <span className={isDone ? "text-success" : "text-info"}>
-                    {step.num}. {step.label}
-                  </span>
-                  {!isDone && missing.length > 0 && (
-                    <ul className="mt-0.5 ml-2 text-muted-foreground">
-                      {missing.map((m) => (
-                        <li key={m}>• {m}</li>
-                      ))}
-                    </ul>
+            {/* Features */}
+            {char.features.length > 0 && (
+              <PanelSection title="Características">
+                <div className="space-y-1">
+                  {char.features.slice(0, 10).map((f, i) => (
+                    <Tooltip key={`${f.sourceId}-${f.name}-${i}`}>
+                      <TooltipTrigger asChild>
+                        <div className="text-[11px] py-0.5 cursor-help">
+                          <span className="font-medium">{f.name}</span>
+                          <span className="text-[9px] text-muted-foreground ml-1">
+                            ({f.sourceType})
+                          </span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="max-w-[250px]">
+                        <p className="text-xs">{f.description}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                  {char.features.length > 10 && (
+                    <p className="text-[10px] text-muted-foreground">+{char.features.length - 10} mais</p>
                   )}
                 </div>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
+              </PanelSection>
+            )}
+          </TabsContent>
+
+          {/* ═══ SPELLS TAB ═══ */}
+          {isSpellcaster && (
+            <TabsContent value="spells" className="m-0 p-3 space-y-3">
+              {/* Spell stats */}
+              <div className="grid grid-cols-3 gap-1.5">
+                <div className="rounded-lg border bg-secondary/30 p-2 text-center">
+                  <p className="text-[9px] uppercase text-muted-foreground">CD</p>
+                  <p className="text-lg font-bold">{char.spells.spellSaveDC}</p>
+                </div>
+                <div className="rounded-lg border bg-secondary/30 p-2 text-center">
+                  <p className="text-[9px] uppercase text-muted-foreground">Ataque</p>
+                  <p className="text-lg font-bold">+{char.spells.spellAttackBonus}</p>
+                </div>
+                <div className="rounded-lg border bg-secondary/30 p-2 text-center">
+                  <p className="text-[9px] uppercase text-muted-foreground">Atributo</p>
+                  <p className="text-sm font-bold">{cls?.spellcasting?.ability?.substring(0, 3) ?? "—"}</p>
+                </div>
+              </div>
+
+              {/* Slots */}
+              {char.spells.slots.length > 0 && (
+                <PanelSection title="Espaços de Magia">
+                  <div className="flex flex-wrap gap-1.5">
+                    {char.spells.slots.map((count, i) => count > 0 && (
+                      <div key={i} className="rounded border bg-secondary/30 px-2 py-1 text-center min-w-[40px]">
+                        <p className="text-[8px] uppercase text-muted-foreground">{i + 1}º</p>
+                        <p className="text-sm font-bold">{count}</p>
+                      </div>
+                    ))}
+                  </div>
+                </PanelSection>
+              )}
+
+              {/* Cantrips */}
+              {char.spells.cantrips.length > 0 && (
+                <PanelSection title={`Truques (${char.spells.cantrips.length})`}>
+                  <div className="flex flex-wrap gap-1">
+                    {char.spells.cantrips.map((id) => {
+                      const sp = spellsData.find((s) => s.id === id);
+                      return (
+                        <span key={id} className="rounded bg-secondary px-1.5 py-0.5 text-[10px]">
+                          {sp?.name ?? id}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </PanelSection>
+              )}
+
+              {/* Prepared/Known */}
+              {char.spells.prepared.length > 0 && (
+                <PanelSection title={`${cls?.spellcasting?.type === "known" || cls?.spellcasting?.type === "pact" ? "Conhecidas" : "Preparadas"} (${char.spells.prepared.length})`}>
+                  <div className="flex flex-wrap gap-1">
+                    {char.spells.prepared.map((id) => {
+                      const sp = spellsData.find((s) => s.id === id);
+                      return (
+                        <Tooltip key={id}>
+                          <TooltipTrigger asChild>
+                            <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] cursor-help">
+                              {sp?.name ?? id}
+                            </span>
+                          </TooltipTrigger>
+                          {sp && (
+                            <TooltipContent side="left" className="max-w-[250px]">
+                              <p className="font-medium text-xs">{sp.name}</p>
+                              <p className="text-[10px] text-muted-foreground">{sp.school} • {sp.level === 0 ? "Truque" : `${sp.level}º Círculo`}</p>
+                              <p className="text-[10px] mt-1">{sp.description.substring(0, 120)}...</p>
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                      );
+                    })}
+                  </div>
+                </PanelSection>
+              )}
+            </TabsContent>
+          )}
+
+          {/* ═══ INVENTORY TAB ═══ */}
+          <TabsContent value="inventory" className="m-0 p-3 space-y-3">
+            {/* Gold */}
+            <div className="flex items-center justify-between rounded-lg border bg-secondary/30 p-2.5">
+              <div className="flex items-center gap-1.5">
+                <Coins className="h-4 w-4 text-warning" />
+                <span className="text-sm font-medium">Ouro</span>
+              </div>
+              <span className="text-sm font-bold text-warning">{char.gold?.gp ?? 0} PO</span>
+            </div>
+
+            {/* Equipped */}
+            {(char.equipped?.armor || char.equipped?.shield) && (
+              <PanelSection title="Equipado">
+                <div className="space-y-1 text-xs">
+                  {char.equipped.armor && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Armadura</span>
+                      <span className="font-medium">{itemsById[char.equipped.armor]?.name ?? char.equipped.armor}</span>
+                    </div>
+                  )}
+                  {char.equipped.shield && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Escudo</span>
+                      <span className="font-medium">{itemsById[char.equipped.shield]?.name ?? char.equipped.shield}</span>
+                    </div>
+                  )}
+                  {char.equipped.weapons.length > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Armas</span>
+                      <span className="font-medium text-right">
+                        {char.equipped.weapons.map((w) => itemsById[w]?.name ?? w).join(", ")}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </PanelSection>
+            )}
+
+            {/* Inventory items */}
+            {char.inventory.length > 0 ? (
+              <PanelSection title={`Itens (${char.inventory.length})`}>
+                <div className="space-y-0.5">
+                  {char.inventory.map((entry) => {
+                    const item = itemsById[entry.itemId];
+                    return (
+                      <div key={entry.itemId} className="flex items-center justify-between text-[11px] py-0.5">
+                        <span className="truncate">{item?.name ?? entry.notes ?? entry.itemId}</span>
+                        {entry.quantity > 1 && (
+                          <span className="text-muted-foreground shrink-0 ml-1">×{entry.quantity}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </PanelSection>
+            ) : (
+              <EmptyState text="Inventário vazio" />
+            )}
+
+            {/* Weight */}
+            {false && char.inventory.length > 0 && (
+              <div className="text-[10px] text-muted-foreground text-right">
+                Peso total: {char.inventory.reduce((sum, e) => {
+                  const item = itemsById[e.itemId];
+                  return sum + (item?.weight ?? 0) * e.quantity;
+                }, 0).toFixed(1)} lb
+              </div>
+            )}
+          </TabsContent>
+        </ScrollArea>
+      </Tabs>
     </aside>
   );
 }
 
-function Row({ label, value, extra }: { label: string; value?: string; extra?: string }) {
+function StatMini({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium text-right">
-        {value ?? "—"}
-        {extra && <span className="text-[10px] text-muted-foreground ml-1">({extra})</span>}
-      </span>
+    <div className="text-center py-1.5 border-r last:border-r-0">
+      <p className="text-[8px] uppercase text-muted-foreground font-semibold tracking-wider">{label}</p>
+      <p className="text-sm font-bold">{value}</p>
     </div>
   );
 }
 
-function StatMini({ label, value, color }: { label: string; value: string; color?: string }) {
+function MiniTag({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-lg bg-secondary/40 p-2 text-center">
-      <p className="text-[9px] uppercase text-muted-foreground">{label}</p>
-      <p className={`text-lg font-bold ${color ?? ""}`}>{value}</p>
+    <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-medium">
+      {children}
+    </span>
+  );
+}
+
+function PanelSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-[9px] uppercase text-muted-foreground font-semibold tracking-wider mb-1.5">
+        {title}
+      </p>
+      {children}
     </div>
   );
 }
 
-function Divider() {
-  return <div className="border-t border-border/40 my-1" />;
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="rounded-lg border border-dashed bg-secondary/10 py-6 text-center">
+      <p className="text-xs text-muted-foreground">{text}</p>
+    </div>
+  );
 }

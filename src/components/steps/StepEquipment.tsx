@@ -2,9 +2,10 @@ import { useCharacterStore } from "@/state/characterStore";
 import { useBuilderStore } from "@/state/builderStore";
 import { items, itemsById, type Item, type WeaponProperties, type ArmorProperties, type ShieldProperties, type InventoryEntry } from "@/data/items";
 import { classes } from "@/data/classes";
+import { backgrounds } from "@/data/backgrounds";
 import { calcArmorClass, buildAttacks, isArmorProficient } from "@/utils/equipment";
 import { useEffect, useMemo, useState } from "react";
-import { Search, Plus, Minus, Shield, Swords, AlertTriangle, Package, Coins, Trash2, Check } from "lucide-react";
+import { Search, Plus, Minus, Shield, Swords, AlertTriangle, Package, Coins, Trash2, Check, BookOpen } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -27,18 +28,24 @@ export function StepEquipment() {
   const setMissing = useBuilderStore((s) => s.setMissing);
 
   const cls = classes.find((c) => c.id === char.class);
+  const isSpellcaster = cls?.spellcasting != null;
   const hasEquipChoices = cls && cls.equipmentChoices.length > 0;
   const equipChoicePending = hasEquipChoices && !char.classEquipmentChoice;
 
   // ── Catalog state ──
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const CATALOG_PAGE = 30;
+  const [catalogVisible, setCatalogVisible] = useState(CATALOG_PAGE);
 
   // ── Select initial equipment A/B ──
   function selectEquipmentChoice(choiceId: string) {
     if (!cls) return;
     const choice = cls.equipmentChoices.find((c) => c.id === choiceId);
     if (!choice) return;
+
+    // Find background
+    const bg = backgrounds.find((b) => b.id === char.background);
 
     // Build inventory from choice items (best-effort match to items.ts)
     const newInventory: InventoryEntry[] = [];
@@ -58,13 +65,17 @@ export function StepEquipment() {
       }
     }
 
-    // Also add background equipment if present
-    // (background equipment was already in char.equipment, merge it)
-    for (const eqName of char.equipment) {
-      const matched = items.find((i) => i.name.toLowerCase() === eqName.toLowerCase());
-      const id = matched?.id ?? `custom_${eqName}`;
-      if (!newInventory.find((e) => e.itemId === id)) {
-        newInventory.push({ itemId: id, quantity: 1, equipped: false, notes: matched ? "" : eqName });
+    // Add background equipment items if present
+    if (bg?.equipment?.items) {
+      for (const itemName of bg.equipment.items) {
+        const matched = items.find((i) => i.name.toLowerCase() === itemName.toLowerCase());
+        const id = matched?.id ?? `custom_${itemName}`;
+        const existing = newInventory.find((e) => e.itemId === id);
+        if (existing) {
+          existing.quantity += 1;
+        } else {
+          newInventory.push({ itemId: id, quantity: 1, equipped: false, notes: matched ? "" : itemName });
+        }
       }
     }
 
@@ -72,7 +83,7 @@ export function StepEquipment() {
       classEquipmentChoice: choiceId,
       inventory: newInventory,
       equipped: { armor: null, shield: null, weapons: [] },
-      gold: { gp: choice.gold + (char.gold?.gp ?? 0) },
+      gold: { gp: choice.gold + (bg?.equipment?.gold ?? 0) },
     });
   }
 
@@ -135,15 +146,6 @@ export function StepEquipment() {
     patchCharacter({ equipped: { ...char.equipped, weapons } });
   }
 
-  // ── Recalc AC and attacks ──
-  useEffect(() => {
-    const ac = calcArmorClass(char);
-    const attacks = buildAttacks(char);
-    if (ac !== char.armorClass || JSON.stringify(attacks) !== JSON.stringify(char.attacks)) {
-      patchCharacter({ armorClass: ac, attacks });
-    }
-  }, [char.equipped, char.inventory, char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.proficiencies.weapons]);
-
   // ── Validation ──
   useEffect(() => {
     const missing: string[] = [];
@@ -167,6 +169,11 @@ export function StepEquipment() {
     });
   }, [search, typeFilter]);
 
+  // Reset pagination on filter change
+  useEffect(() => { setCatalogVisible(CATALOG_PAGE); }, [search, typeFilter]);
+
+  const visibleItems = useMemo(() => filteredItems.slice(0, catalogVisible), [filteredItems, catalogVisible]);
+
   // ── Inventory items with data ──
   const inventoryItems = useMemo(() => {
     return char.inventory.map((entry) => {
@@ -187,7 +194,7 @@ export function StepEquipment() {
   return (
     <div className="p-6 space-y-8">
       <div>
-        <h2 className="text-2xl font-bold mb-1">7. Equipamento</h2>
+        <h2 className="text-2xl font-bold mb-1">5. Equipamento</h2>
         <p className="text-sm text-muted-foreground">
           Gerencie seu inventário, equipe armas e armaduras, e veja seus ataques calculados.
         </p>
@@ -348,7 +355,7 @@ export function StepEquipment() {
           </div>
 
           {/* AC Display */}
-          <div className="flex items-center gap-4 rounded-lg border bg-card p-3">
+          <div className="flex items-center justify-center gap-8 rounded-lg border bg-card p-3">
             <div className="text-center">
               <p className="text-xs uppercase text-muted-foreground">CA Final</p>
               <p className="text-3xl font-bold text-primary">{char.armorClass}</p>
@@ -356,10 +363,6 @@ export function StepEquipment() {
             <div className="text-center">
               <p className="text-xs uppercase text-muted-foreground">Ouro</p>
               <p className="text-xl font-bold text-warning">{char.gold?.gp ?? 0} PO</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xs uppercase text-muted-foreground">Peso Total</p>
-              <p className="text-xl font-bold">{totalWeight.toFixed(1)} lb</p>
             </div>
           </div>
         </section>
@@ -407,7 +410,24 @@ export function StepEquipment() {
         </section>
       )}
 
-      {/* ── Section 4: Inventory ── */}
+      {/* ── Section 4: Spells (if spellcaster) ── */}
+      {isSpellcaster && (
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+            <BookOpen className="h-4 w-4" />
+            Truques e Magias
+          </h3>
+          <div className="rounded-lg border bg-card p-4">
+            <p className="text-sm text-muted-foreground mb-3">
+              Escolha seus truques e magias conhecidas/preparadas.
+            </p>
+            {/* Placeholder for spells selection */}
+            <p className="text-xs text-muted-foreground">Funcionalidade de magias será implementada aqui.</p>
+          </div>
+        </section>
+      )}
+
+      {/* ── Section 5: Inventory ── */}
       <section className="space-y-3">
         <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
           Inventário ({char.inventory.length} itens)
@@ -472,7 +492,7 @@ export function StepEquipment() {
         )}
       </section>
 
-      {/* ── Section 5: Item Catalog ── */}
+      {/* ── Section 6: Item Catalog ── */}
       <section className="space-y-3">
         <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
           Catálogo de Itens
@@ -497,9 +517,17 @@ export function StepEquipment() {
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[400px] overflow-y-auto pr-1">
-          {filteredItems.map((item) => (
+          {visibleItems.map((item) => (
             <CatalogCard key={item.id} item={item} onAdd={() => addItem(item.id)} />
           ))}
+          {catalogVisible < filteredItems.length && (
+            <button
+              onClick={() => setCatalogVisible((c) => c + CATALOG_PAGE)}
+              className="col-span-full rounded-lg border border-dashed py-2 text-sm text-muted-foreground hover:bg-secondary/50 transition-colors"
+            >
+              Mostrar mais ({filteredItems.length - catalogVisible} restantes)
+            </button>
+          )}
           {filteredItems.length === 0 && (
             <p className="col-span-full text-center text-sm text-muted-foreground py-8">
               Nenhum item encontrado.

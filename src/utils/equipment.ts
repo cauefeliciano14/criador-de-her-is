@@ -8,7 +8,7 @@ import { calcAbilityMod, getFinalAbilityScores, type AbilityKey } from "@/utils/
  * Does NOT apply class overrides (e.g. Barbarian Unarmored Defense) – use applyACOverrides for that.
  */
 export function calcArmorClass(char: CharacterState): number {
-  const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses);
+  const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses, char.featAbilityBonuses);
   const dexMod = calcAbilityMod(finalScores.dex);
 
   let ac = 10 + dexMod; // no armor default
@@ -41,7 +41,7 @@ export function applyACOverrides(_char: CharacterState, baseAC: number): number 
 export function buildAttacks(char: CharacterState): AttackEntry[] {
   if (!char.equipped?.weapons?.length) return [];
 
-  const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses);
+  const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses, char.featAbilityBonuses);
   const strMod = calcAbilityMod(finalScores.str);
   const dexMod = calcAbilityMod(finalScores.dex);
   const profBonus = char.proficiencyBonus;

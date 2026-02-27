@@ -57,7 +57,7 @@ export function StepSpells() {
     return map[spellcastingAbility] ?? null;
   }, [spellcastingAbility]);
 
-  const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses);
+  const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses, char.featAbilityBonuses);
   const abilityMod = abilityKey ? calcAbilityMod(finalScores[abilityKey]) : 0;
   const profBonus = char.proficiencyBonus;
   const spellSaveDC = sc ? 8 + profBonus + abilityMod : 0;
@@ -65,6 +65,8 @@ export function StepSpells() {
 
   // Limits
   const level = char.level;
+  const classFeatureChoices = char.classFeatureChoices ?? {};
+
   const cantripsLimit = useMemo(() => {
     if (!sc) return 0;
     const entries = Object.entries(sc.cantripsKnownAtLevel)
@@ -74,8 +76,15 @@ export function StepSpells() {
     for (const [l, c] of entries) {
       if (level >= l) limit = c;
     }
+    // Bonus cantrips from class features (Taumaturgo / Xamã)
+    if (classId === "clerigo" && classFeatureChoices["clerigo:ordemDivina"] === "taumaturgo") {
+      limit += 1;
+    }
+    if (classId === "druida" && classFeatureChoices["druida:ordemPrimal"] === "xama") {
+      limit += 1;
+    }
     return limit;
-  }, [sc, level]);
+  }, [sc, level, classId, classFeatureChoices]);
 
   const availableSlots = useMemo(() => {
     if (!sc) return {} as Record<number, number>;
@@ -127,6 +136,8 @@ export function StepSpells() {
   const [filterConcentration, setFilterConcentration] = useState(false);
   const [filterRitual, setFilterRitual] = useState(false);
   const [detailSpell, setDetailSpell] = useState<SpellData | null>(null);
+  const PAGE_SIZE = 30;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const schools = useMemo(() => getSpellSchools(), []);
 
@@ -149,11 +160,16 @@ export function StepSpells() {
     });
   }, [classSpells, search, filterLevel, filterSchool, filterConcentration, filterRitual, maxSpellLevel]);
 
+  // Reset pagination when filters change
+  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [search, filterLevel, filterSchool, filterConcentration, filterRitual]);
+
+  const visibleSpells = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
+
   // ── Selection state ──
   const selectedCantrips = char.spells.cantrips;
-  const selectedPrepared = sc?.type === "known" || sc?.type === "pact"
-    ? (char.spells as any).known ?? char.spells.prepared
-    : char.spells.prepared;
+  // NOTE: We store leveled spells in `spells.prepared` for ALL caster types (prepared/known/pact)
+  // to keep the state shape simple for now (levels 1–2 focus).
+  const selectedPrepared = char.spells.prepared;
 
   const toggleSpell = (spell: SpellData) => {
     if (spell.level === 0) {
@@ -183,13 +199,12 @@ export function StepSpells() {
       } else if (current.length < preparedLimit) {
         current.push(spell.id);
       }
-      const key = sc?.type === "known" || sc?.type === "pact" ? "known" : "prepared";
-      // We store in prepared for simplicity; the store field is `prepared`
+      // Store in `prepared` for all caster types (prepared/known/pact)
       patchCharacter({
         spells: {
           ...char.spells,
           cantrips: selectedCantrips,
-          prepared: key === "prepared" ? current : char.spells.prepared,
+          prepared: current,
           spellcastingAbility: abilityKey,
           spellSaveDC,
           spellAttackBonus,
@@ -220,32 +235,8 @@ export function StepSpells() {
 
   // ── Validation ──
   useEffect(() => {
-    if (!sc) {
-      completeStep("spells");
-      setMissing("spells", []);
-      return;
-    }
-
-    const missing: string[] = [];
-    if (cantripsLimit > 0 && selectedCantrips.length < cantripsLimit) {
-      missing.push(`Escolha ${cantripsLimit - selectedCantrips.length} truque(s)`);
-    }
-    if (cantripsLimit > 0 && selectedCantrips.length > cantripsLimit) {
-      missing.push(`Remova ${selectedCantrips.length - cantripsLimit} truque(s) excedente(s)`);
-    }
-    if (preparedLimit > 0 && selectedPrepared.length < preparedLimit) {
-      missing.push(`Escolha ${preparedLimit - selectedPrepared.length} magia(s) ${spellTypeLabel.toLowerCase()}`);
-    }
-    if (preparedLimit > 0 && selectedPrepared.length > preparedLimit) {
-      missing.push(`Remova ${selectedPrepared.length - preparedLimit} magia(s) excedente(s)`);
-    }
-
-    setMissing("spells", missing);
-    if (missing.length === 0) {
-      completeStep("spells");
-    } else {
-      uncompleteStep("spells");
-    }
+    // Spells validation is tracked internally but step is part of "sheet"
+    // We don't call completeStep/uncompleteStep here as Spells is embedded in Sheet
   }, [selectedCantrips.length, selectedPrepared.length, cantripsLimit, preparedLimit, sc]);
 
   // ── No spellcasting ──
@@ -430,7 +421,7 @@ export function StepSpells() {
             Nenhuma magia encontrada para os filtros selecionados.
           </p>
         ) : (
-          filtered.map((spell) => {
+          visibleSpells.map((spell) => {
             const selected = isSelected(spell.id, spell.level);
             const atLimit = spell.level === 0
               ? selectedCantrips.length >= cantripsLimit
@@ -498,6 +489,14 @@ export function StepSpells() {
               </div>
             );
           })
+        )}
+        {visibleCount < filtered.length && (
+          <button
+            onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+            className="w-full rounded-lg border border-dashed py-2 text-sm text-muted-foreground hover:bg-secondary/50 transition-colors"
+          >
+            Mostrar mais ({filtered.length - visibleCount} restantes)
+          </button>
         )}
       </div>
 

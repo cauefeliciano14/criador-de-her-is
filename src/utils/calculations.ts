@@ -58,16 +58,17 @@ export function calcProficiencyBonus(level: number): number {
   return Math.ceil(level / 4) + 1;
 }
 
-/** Get final scores = base + racial bonuses + background bonuses + ASI bonuses */
+/** Get final scores = base + racial bonuses + background bonuses + ASI bonuses + feat bonuses */
 export function getFinalAbilityScores(
   baseScores: Record<AbilityKey, number>,
   racialBonuses: Record<AbilityKey, number>,
   backgroundBonuses?: Record<AbilityKey, number>,
-  asiBonuses?: Record<AbilityKey, number>
+  asiBonuses?: Record<AbilityKey, number>,
+  featBonuses?: Record<AbilityKey, number>
 ): Record<AbilityKey, number> {
   const result = {} as Record<AbilityKey, number>;
   for (const key of ABILITIES) {
-    result[key] = Math.min(20, baseScores[key] + (racialBonuses[key] ?? 0) + (backgroundBonuses?.[key] ?? 0) + (asiBonuses?.[key] ?? 0));
+    result[key] = Math.min(20, baseScores[key] + (racialBonuses[key] ?? 0) + (backgroundBonuses?.[key] ?? 0) + (asiBonuses?.[key] ?? 0) + (featBonuses?.[key] ?? 0));
   }
   return result;
 }
@@ -75,7 +76,7 @@ export function getFinalAbilityScores(
 export function recalcDerivedStats(
   char: CharacterState
 ): Partial<CharacterState> {
-  const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses);
+  const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses, char.featAbilityBonuses);
   
   const mods: Record<AbilityKey, number> = {
     str: calcAbilityMod(finalScores.str),

@@ -1,8 +1,13 @@
 import { useCharacterStore, mergeUnique, replaceFeatures, type NormalizedFeature } from "@/state/characterStore";
 import { useBuilderStore } from "@/state/builderStore";
 import { classes, type ClassData } from "@/data/classes";
-import { CheckCircle2, Search, Info, ChevronDown, ChevronUp, Swords, Shield, Package } from "lucide-react";
+import { CheckCircle2, Search, Info, ChevronDown, ChevronUp, Swords, Shield, Package, AlertTriangle, BookOpen, Lock } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export function StepClass() {
   const [search, setSearch] = useState("");
@@ -12,6 +17,7 @@ export function StepClass() {
   const subclassId = useCharacterStore((s) => s.subclass);
   const classSkillChoices = useCharacterStore((s) => s.classSkillChoices);
   const classEquipmentChoice = useCharacterStore((s) => s.classEquipmentChoice);
+  const classFeatureChoices = useCharacterStore((s) => s.classFeatureChoices);
   const level = useCharacterStore((s) => s.level);
   const patchCharacter = useCharacterStore((s) => s.patchCharacter);
   const completeStep = useBuilderStore((s) => s.completeStep);
@@ -24,6 +30,45 @@ export function StepClass() {
 
   const selectedClass = classes.find((c) => c.id === classId);
 
+  const MAX_SUPPORTED_LEVEL = 2;
+
+  // --- Level handler ---
+  const handleLevelChange = useCallback((newLevel: number) => {
+    if (newLevel < 1 || newLevel > MAX_SUPPORTED_LEVEL) return;
+    if (newLevel === level) return;
+
+    const state = useCharacterStore.getState();
+    const patch: Partial<typeof state> = { level: newLevel };
+
+    if (state.class) {
+      const cls = classes.find((c) => c.id === state.class);
+      if (cls) {
+        const newFeatures: NormalizedFeature[] = [];
+        for (const lvlBlock of cls.featuresByLevel) {
+          if (lvlBlock.level <= newLevel) {
+            for (const f of lvlBlock.features) {
+              newFeatures.push({
+                sourceType: "class",
+                sourceId: cls.id,
+                name: f.name,
+                description: f.description,
+                level: lvlBlock.level,
+              });
+            }
+          }
+        }
+        patch.features = replaceFeatures(state.features, ["class"], newFeatures);
+
+        if (cls.spellcasting) {
+          const slotData = cls.spellcasting.spellSlotsByLevel[newLevel] ?? {};
+          patch.spells = { ...state.spells, slots: Object.values(slotData) };
+        }
+      }
+    }
+
+    patchCharacter(patch);
+  }, [level, patchCharacter]);
+
   // --- Validation ---
   const computeMissing = useCallback(() => {
     const missing: string[] = [];
@@ -32,16 +77,18 @@ export function StepClass() {
     } else {
       const cls = classes.find((c) => c.id === classId);
       if (cls) {
-        if (classSkillChoices.length < cls.skillChoices.choose) {
-          missing.push(`Escolher ${cls.skillChoices.choose - classSkillChoices.length} perícia(s)`);
+        // Cleric: Divine Order required
+        if (classId === "clerigo" && !classFeatureChoices["clerigo:ordemDivina"]) {
+          missing.push("Escolher Ordem Divina");
         }
-        if (!classEquipmentChoice) {
-          missing.push("Escolher equipamento inicial");
+        // Druid: Primal Order required
+        if (classId === "druida" && !classFeatureChoices["druida:ordemPrimal"]) {
+          missing.push("Escolher Ordem Primal");
         }
       }
     }
     return missing;
-  }, [classId, classSkillChoices, classEquipmentChoice]);
+  }, [classId, classFeatureChoices]);
 
   useEffect(() => {
     const missing = computeMissing();
@@ -51,7 +98,7 @@ export function StepClass() {
     } else {
       uncompleteStep("class");
     }
-  }, [classId, classSkillChoices, classEquipmentChoice]);
+  }, [classId, classFeatureChoices]);
 
   // --- Select class ---
   const handleSelect = (id: string) => {
@@ -60,15 +107,22 @@ export function StepClass() {
     const cls = classes.find((c) => c.id === id)!;
     const state = useCharacterStore.getState();
 
-    // Build level-1 features
-    const lvl1 = cls.featuresByLevel.find((f) => f.level === 1);
-    const newFeatures: NormalizedFeature[] = (lvl1?.features ?? []).map((f) => ({
-      sourceType: "class" as const,
-      sourceId: cls.id,
-      name: f.name,
-      description: f.description,
-      level: 1,
-    }));
+    // Build features up to current level
+    const currentLevel = state.level;
+    const newFeatures: NormalizedFeature[] = [];
+    for (const lvlBlock of cls.featuresByLevel) {
+      if (lvlBlock.level <= currentLevel) {
+        for (const f of lvlBlock.features) {
+          newFeatures.push({
+            sourceType: "class" as const,
+            sourceId: cls.id,
+            name: f.name,
+            description: f.description,
+            level: lvlBlock.level,
+          });
+        }
+      }
+    }
 
     // Remove old class/subclass features, add new
     const features = replaceFeatures(state.features, ["class", "subclass"], newFeatures);
@@ -78,7 +132,7 @@ export function StepClass() {
       ? {
           cantrips: [],
           prepared: [],
-          slots: Object.values(cls.spellcasting.spellSlotsByLevel[1] ?? {}),
+          slots: Object.values(cls.spellcasting.spellSlotsByLevel[currentLevel] ?? {}),
           spellcastingAbility: cls.spellcasting.ability,
           spellSaveDC: 0,
           spellAttackBonus: 0,
@@ -99,6 +153,14 @@ export function StepClass() {
       (f) => f.sourceType === "race" || f.sourceType === "subrace"
     );
 
+    // Set class-specific flags for engine overrides
+    const classFlags: Record<string, number | boolean> = {
+      ...state.flags,
+      unarmoredDefenseBarbarian: id === "barbaro",
+      unarmoredDefenseMonk: id === "monge",
+      draconicResilience: false, // reset on class change; set by subclass
+    };
+
     patchCharacter({
       class: id,
       subclass: null,
@@ -115,6 +177,9 @@ export function StepClass() {
       features,
       spells,
       equipment: [],
+      flags: classFlags,
+      classFeatureChoices: {},
+      expertiseSkills: [],
     });
   };
 
@@ -143,13 +208,14 @@ export function StepClass() {
   };
 
   // --- Subclass ---
-  const handleSubclass = (subId: string) => {
+  const [pendingSubclassSwap, setPendingSubclassSwap] = useState<string | null>(null);
+
+  const applySubclass = (subId: string) => {
     if (!selectedClass) return;
     const sub = selectedClass.subclasses.find((s) => s.id === subId);
     if (!sub) return;
 
     const state = useCharacterStore.getState();
-    // Remove old subclass features, add new lvl features <= current level
     const subFeatures: NormalizedFeature[] = sub.featuresByLevel
       .filter((fl) => fl.level <= level)
       .flatMap((fl) =>
@@ -167,7 +233,30 @@ export function StepClass() {
       ...subFeatures,
     ];
 
-    patchCharacter({ subclass: subId, features });
+    // Set subclass-specific flags
+    const subclassFlags: Record<string, number | boolean> = {
+      ...state.flags,
+      draconicResilience: subId === "linhagemDraconica",
+    };
+
+    patchCharacter({ subclass: subId, features, flags: subclassFlags });
+  };
+
+  const handleSubclass = (subId: string) => {
+    if (!selectedClass) return;
+    // If already has a subclass and trying to change, show confirmation
+    if (subclassId && subclassId !== subId) {
+      setPendingSubclassSwap(subId);
+      return;
+    }
+    applySubclass(subId);
+  };
+
+  const confirmSubclassSwap = () => {
+    if (pendingSubclassSwap) {
+      applySubclass(pendingSubclassSwap);
+      setPendingSubclassSwap(null);
+    }
   };
 
   const toggleFeature = (name: string) => {
@@ -178,7 +267,41 @@ export function StepClass() {
     <div className="flex gap-0 h-full">
       {/* Left - Class list */}
       <div className="w-72 shrink-0 border-r p-4 overflow-y-auto">
-        <h2 className="mb-3 text-lg font-bold">3. Escolha sua Classe</h2>
+        {/* Level Selector */}
+        <section className="mb-4">
+          <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+            Nível Inicial
+          </h3>
+          <div className="inline-flex rounded-lg border bg-card p-1 gap-1 w-full">
+            {[1, 2].map((lvl) => (
+              <button
+                key={lvl}
+                onClick={() => handleLevelChange(lvl)}
+                className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  level === lvl
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                }`}
+              >
+                Nível {lvl}
+              </button>
+            ))}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  disabled
+                  className="flex-1 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground/40 cursor-not-allowed flex items-center justify-center gap-1"
+                >
+                  <Lock className="h-3 w-3" />
+                  3–20
+                </button>
+              </TooltipTrigger>
+              <TooltipContent><p>Em breve</p></TooltipContent>
+            </Tooltip>
+          </div>
+        </section>
+
+        <h2 className="mb-3 text-lg font-bold">1. Escolha sua Classe</h2>
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -227,13 +350,51 @@ export function StepClass() {
             cls={selectedClass}
             classSkillChoices={classSkillChoices}
             classEquipmentChoice={classEquipmentChoice}
+            classFeatureChoices={classFeatureChoices}
             subclassId={subclassId}
             level={level}
             expandedFeatures={expandedFeatures}
             onToggleSkill={handleToggleSkill}
-            onSelectEquipment={handleEquipment}
             onSelectSubclass={handleSubclass}
             onToggleFeature={toggleFeature}
+            onSetFeatureChoice={(key, value) => {
+              const state = useCharacterStore.getState();
+              const newChoices = { ...state.classFeatureChoices, [key]: value };
+
+              // Apply Cleric Protetor proficiencies
+              if (key === "clerigo:ordemDivina") {
+                const baseCls = classes.find((c) => c.id === "clerigo")!;
+                let armor = [...baseCls.proficiencies.armor];
+                let weapons = [...baseCls.proficiencies.weapons];
+                if (value === "protetor") {
+                  armor = mergeUnique(armor, ["Armaduras Pesadas"]);
+                  weapons = mergeUnique(weapons, ["Armas Marciais"]);
+                }
+                patchCharacter({
+                  classFeatureChoices: newChoices,
+                  proficiencies: { ...state.proficiencies, armor, weapons },
+                });
+                return;
+              }
+
+              // Apply Druid Protetor proficiencies
+              if (key === "druida:ordemPrimal") {
+                const baseCls = classes.find((c) => c.id === "druida")!;
+                let armor = [...baseCls.proficiencies.armor];
+                let weapons = [...baseCls.proficiencies.weapons];
+                if (value === "protetor") {
+                  armor = mergeUnique(armor, ["Armaduras Médias"]);
+                  weapons = mergeUnique(weapons, ["Armas Marciais"]);
+                }
+                patchCharacter({
+                  classFeatureChoices: newChoices,
+                  proficiencies: { ...state.proficiencies, armor, weapons },
+                });
+                return;
+              }
+
+              patchCharacter({ classFeatureChoices: newChoices });
+            }}
           />
         ) : (
           <div className="flex h-full items-center justify-center text-muted-foreground">
@@ -241,6 +402,25 @@ export function StepClass() {
           </div>
         )}
       </div>
+
+      {/* Subclass swap confirmation */}
+      <AlertDialog open={!!pendingSubclassSwap} onOpenChange={() => setPendingSubclassSwap(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-warning" />
+              Trocar Subclasse?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Trocar de subclasse removerá todas as características da subclasse anterior e pode invalidar escolhas feitas. Deseja continuar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmSubclassSwap}>Confirmar Troca</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -251,28 +431,31 @@ interface ClassDetailsProps {
   cls: ClassData;
   classSkillChoices: string[];
   classEquipmentChoice: string | null;
+  classFeatureChoices: Record<string, string | string[]>;
   subclassId: string | null;
   level: number;
   expandedFeatures: Record<string, boolean>;
   onToggleSkill: (skill: string) => void;
-  onSelectEquipment: (id: string) => void;
   onSelectSubclass: (id: string) => void;
   onToggleFeature: (name: string) => void;
+  onSetFeatureChoice: (key: string, value: string) => void;
 }
 
 function ClassDetails({
   cls,
   classSkillChoices,
   classEquipmentChoice,
+  classFeatureChoices,
   subclassId,
   level,
   expandedFeatures,
   onToggleSkill,
-  onSelectEquipment,
   onSelectSubclass,
   onToggleFeature,
+  onSetFeatureChoice,
 }: ClassDetailsProps) {
   const isSpellcaster = cls.spellcasting !== null;
+  const avgHitPointsPerLevel = Math.floor(cls.hitDie / 2) + 1;
 
   return (
     <div>
@@ -287,6 +470,14 @@ function ClassDetails({
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div>
               <span className="text-muted-foreground">Dado de Vida:</span> d{cls.hitDie}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Pontos de Vida no Nível 1:</span>{" "}
+              {cls.hitDie} + modificador de Constituição
+            </div>
+            <div>
+              <span className="text-muted-foreground">Pontos de Vida por Nível:</span>{" "}
+              d{cls.hitDie} + modificador de Constituição, ou, {avgHitPointsPerLevel} + modificador de Constituição
             </div>
             <div>
               <span className="text-muted-foreground">Atributo Primário:</span>{" "}
@@ -382,75 +573,140 @@ function ClassDetails({
           </p>
         </Section>
 
-        {/* Equipment choices — REQUIRED */}
-        <Section
-          title="Equipamento Inicial"
-          badge={!classEquipmentChoice ? <RequiredBadge label="Obrigatório" /> : null}
-        >
-          <div className="space-y-2">
-            {cls.equipmentChoices.map((choice) => {
-              const selected = classEquipmentChoice === choice.id;
-              return (
-                <button
-                  key={choice.id}
-                  onClick={() => onSelectEquipment(choice.id)}
-                  className={`w-full rounded-lg border p-4 text-left transition-colors ${
-                    selected
-                      ? "border-primary bg-primary/10"
-                      : "hover:border-muted-foreground/40 hover:bg-secondary"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
-                      <Package className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium text-sm">{choice.label}</span>
-                    </div>
-                    {selected && <CheckCircle2 className="h-4 w-4 text-primary" />}
-                  </div>
-                  {choice.items.length > 0 ? (
-                    <ul className="ml-6 text-xs text-muted-foreground space-y-0.5">
-                      {choice.items.map((item) => (
-                        <li key={item}>• {item}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="ml-6 text-xs text-muted-foreground">
-                      {choice.gold} PO para comprar equipamento
-                    </p>
-                  )}
-                </button>
-              );
-            })}
+        {/* Equipment preview (selection happens in step 5: Equipamentos) */}
+        <Section title="Equipamento Inicial">
+          <p className="text-sm text-muted-foreground">
+            Você escolherá seu equipamento inicial na etapa <span className="font-medium">5. Equipamentos</span>.
+          </p>
+          <div className="mt-3 space-y-2">
+            {cls.equipmentChoices.map((choice) => (
+              <div key={choice.id} className="w-full rounded-lg border p-4 bg-secondary/40">
+                <div className="flex items-center gap-2 mb-1">
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium text-sm">{choice.label}</span>
+                </div>
+                {choice.items.length > 0 ? (
+                  <ul className="ml-6 text-xs text-muted-foreground space-y-0.5">
+                    {choice.items.map((item) => (
+                      <li key={item}>• {item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="ml-6 text-xs text-muted-foreground">
+                    {choice.gold} PO para comprar equipamento
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
         </Section>
 
-        {/* Level 1 features */}
-        <Section title="Características (Nível 1)">
-          {cls.featuresByLevel
-            .filter((fl) => fl.level === 1)
-            .flatMap((fl) => fl.features)
-            .map((f) => {
-              const isOpen = expandedFeatures[f.name] ?? true;
-              return (
-                <div key={f.name} className="mb-2 rounded-md border bg-secondary/40">
+        {/* ── Cleric: Divine Order ── */}
+        {cls.id === "clerigo" && (
+          <Section
+            title="Ordem Divina (Nível 1)"
+            badge={!classFeatureChoices["clerigo:ordemDivina"] ? <RequiredBadge label="Obrigatório" /> : null}
+          >
+            <p className="text-sm text-muted-foreground mb-3">
+              Escolha sua Ordem Divina. Isso determina proficiências extras e habilidades.
+            </p>
+            <div className="space-y-2">
+              {[
+                { id: "protetor", name: "Protetor", desc: "Proficiência com armaduras pesadas e armas marciais." },
+                { id: "taumaturgo", name: "Taumaturgo", desc: "+1 truque de clérigo. Bônus em Arcanismo e Religião (= max(mod. SAB, +1))." },
+              ].map((opt) => {
+                const selected = classFeatureChoices["clerigo:ordemDivina"] === opt.id;
+                return (
                   <button
-                    onClick={() => onToggleFeature(f.name)}
-                    className="flex w-full items-center justify-between p-3"
+                    key={opt.id}
+                    onClick={() => onSetFeatureChoice("clerigo:ordemDivina", opt.id)}
+                    className={`w-full rounded-lg border p-3 text-left transition-colors ${
+                      selected ? "border-primary bg-primary/10" : "hover:border-muted-foreground/40 hover:bg-secondary"
+                    }`}
                   >
-                    <span className="font-medium text-sm">{f.name}</span>
-                    {isOpen ? (
-                      <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    )}
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-sm">{opt.name}</span>
+                      {selected && <CheckCircle2 className="h-4 w-4 text-primary" />}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">{opt.desc}</p>
                   </button>
-                  {isOpen && (
-                    <p className="px-3 pb-3 text-xs text-muted-foreground">{f.description}</p>
-                  )}
-                </div>
-              );
-            })}
-        </Section>
+                );
+              })}
+            </div>
+          </Section>
+        )}
+
+        {/* ── Druid: Primal Order ── */}
+        {cls.id === "druida" && (
+          <Section
+            title="Ordem Primal (Nível 1)"
+            badge={!classFeatureChoices["druida:ordemPrimal"] ? <RequiredBadge label="Obrigatório" /> : null}
+          >
+            <p className="text-sm text-muted-foreground mb-3">
+              Escolha sua Ordem Primal. Isso determina proficiências extras e habilidades.
+            </p>
+            <div className="space-y-2">
+              {[
+                { id: "protetor", name: "Protetor", desc: "Proficiência com armaduras médias e armas marciais." },
+                { id: "xama", name: "Xamã", desc: "+1 truque de druida. Bônus em Arcanismo e Natureza (= max(mod. SAB, +1))." },
+              ].map((opt) => {
+                const selected = classFeatureChoices["druida:ordemPrimal"] === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    onClick={() => onSetFeatureChoice("druida:ordemPrimal", opt.id)}
+                    className={`w-full rounded-lg border p-3 text-left transition-colors ${
+                      selected ? "border-primary bg-primary/10" : "hover:border-muted-foreground/40 hover:bg-secondary"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-sm">{opt.name}</span>
+                      {selected && <CheckCircle2 className="h-4 w-4 text-primary" />}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">{opt.desc}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </Section>
+        )}
+
+        {/* Class features grouped by level */}
+        {cls.featuresByLevel
+          .filter((fl) => fl.level <= level)
+          .sort((a, b) => a.level - b.level)
+          .map((fl) => (
+            <Section key={fl.level} title={`Características (Nível ${fl.level})`}>
+              {fl.features.map((f) => {
+                const key = `${fl.level}-${f.name}`;
+                const isOpen = expandedFeatures[key] ?? true;
+                return (
+                  <div key={key} className="mb-2 rounded-md border bg-secondary/40">
+                    <button
+                      onClick={() => onToggleFeature(key)}
+                      className="flex w-full items-center justify-between p-3"
+                    >
+                      <span className="font-medium text-sm">{f.name}</span>
+                      {isOpen ? (
+                        <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </button>
+                    {isOpen && (
+                      <p className="px-3 pb-3 text-xs text-muted-foreground">{f.description}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </Section>
+          ))}
+
+        {level >= 2 && (
+          <p className="text-xs text-muted-foreground italic mt-1 mb-4">
+            Você começará com as características dos níveis 1 e {level}.
+          </p>
+        )}
 
         {/* Spellcasting info */}
         {isSpellcaster && cls.spellcasting && (
@@ -469,17 +725,24 @@ function ClassDetails({
                   : "Magia de pacto"}
               </div>
               <div>
-                <span className="text-muted-foreground">Truques no Nível 1:</span>{" "}
-                {cls.spellcasting.cantripsKnownAtLevel[1] ?? 0}
+                <span className="text-muted-foreground">Truques no Nível {level}:</span>{" "}
+                {(() => {
+                  const entries = Object.entries(cls.spellcasting!.cantripsKnownAtLevel)
+                    .map(([l, c]) => [Number(l), c] as [number, number])
+                    .sort((a, b) => a[0] - b[0]);
+                  let limit = 0;
+                  for (const [l, c] of entries) { if (level >= l) limit = c; }
+                  return limit;
+                })()}
               </div>
               <div>
                 <span className="text-muted-foreground">Magias preparadas:</span>{" "}
                 {cls.spellcasting.spellsPreparedFormula}
               </div>
-              {cls.spellcasting.spellSlotsByLevel[1] && (
+              {cls.spellcasting.spellSlotsByLevel[level] && (
                 <div>
-                  <span className="text-muted-foreground">Espaços (Nível 1):</span>{" "}
-                  {Object.entries(cls.spellcasting.spellSlotsByLevel[1])
+                  <span className="text-muted-foreground">Espaços (Nível {level}):</span>{" "}
+                  {Object.entries(cls.spellcasting.spellSlotsByLevel[level])
                     .map(([lvl, slots]) => `${slots}× nível ${lvl}`)
                     .join(", ")}
                 </div>
@@ -492,40 +755,12 @@ function ClassDetails({
         )}
 
         {/* Subclasses */}
-        <Section title="Subclasse">
-          {level >= 3 && cls.subclasses.length > 0 ? (
-            <div className="space-y-2">
-              {cls.subclasses
-                .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
-                .map((sc) => {
-                  const isSel = subclassId === sc.id;
-                  return (
-                    <button
-                      key={sc.id}
-                      onClick={() => onSelectSubclass(sc.id)}
-                      className={`w-full rounded-lg border p-3 text-left transition-colors ${
-                        isSel
-                          ? "border-primary bg-primary/10"
-                          : "hover:border-muted-foreground/40 hover:bg-secondary"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm">{sc.name}</span>
-                        {isSel && <CheckCircle2 className="h-4 w-4 text-primary" />}
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {sc.description}
-                      </p>
-                    </button>
-                  );
-                })}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground italic">
-              Você escolherá sua subclasse no nível 3.
-            </p>
-          )}
-        </Section>
+        <SubclassSection
+          cls={cls}
+          subclassId={subclassId}
+          level={level}
+          onSelectSubclass={onSelectSubclass}
+        />
       </div>
     </div>
   );
@@ -561,5 +796,132 @@ function RequiredBadge({ label }: { label: string }) {
       <Info className="h-3 w-3" />
       {label}
     </span>
+  );
+}
+
+// ─── Subclass Section ───
+
+function SubclassSection({
+  cls,
+  subclassId,
+  level,
+  onSelectSubclass,
+}: {
+  cls: ClassData;
+  subclassId: string | null;
+  level: number;
+  onSelectSubclass: (id: string) => void;
+}) {
+  const [expandedSubclass, setExpandedSubclass] = useState<string | null>(subclassId);
+
+  const subclassLevel = cls.subclassLevel;
+  const hasSubclasses = cls.subclasses.length > 0;
+  const isUnlocked = subclassLevel != null && level >= subclassLevel;
+  const isRequired = isUnlocked && hasSubclasses && !subclassId;
+
+  if (!hasSubclasses) return null;
+
+  return (
+    <Section
+      title="Subclasse"
+      badge={
+        isRequired ? (
+          <RequiredBadge label="Obrigatório" />
+        ) : !isUnlocked && subclassLevel ? (
+          <span className="text-[10px] text-muted-foreground italic">Nível {subclassLevel}</span>
+        ) : null
+      }
+    >
+      {!isUnlocked ? (
+        subclassLevel ? (
+          <p className="text-sm text-muted-foreground italic">
+            Você escolherá sua subclasse no nível {subclassLevel}.
+          </p>
+        ) : (
+          <p className="text-sm text-warning italic flex items-center gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            subclassLevel não definido nos dados desta classe. Seleção indisponível.
+          </p>
+        )
+      ) : (
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Escolha uma subclasse para {cls.name}:
+          </p>
+          <div className="space-y-2">
+            {[...cls.subclasses]
+              .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+              .map((sc) => {
+                const isSel = subclassId === sc.id;
+                const isExpanded = expandedSubclass === sc.id;
+                return (
+                  <div key={sc.id} className={`rounded-lg border transition-colors ${
+                    isSel ? "border-primary bg-primary/5" : "hover:border-muted-foreground/40"
+                  }`}>
+                    <button
+                      onClick={() => {
+                        onSelectSubclass(sc.id);
+                        setExpandedSubclass(sc.id);
+                      }}
+                      className="w-full p-3 text-left"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <BookOpen className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium text-sm">{sc.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {isSel && (
+                            <span className="text-[10px] font-medium text-primary bg-primary/10 rounded-full px-2 py-0.5">
+                              Selecionado
+                            </span>
+                          )}
+                          <CheckCircle2 className={`h-4 w-4 ${isSel ? "text-primary" : "text-transparent"}`} />
+                        </div>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">{sc.description}</p>
+                    </button>
+
+                    {/* Toggle details */}
+                    <button
+                      onClick={() => setExpandedSubclass(isExpanded ? null : sc.id)}
+                      className="w-full flex items-center justify-center gap-1 py-1.5 text-[10px] text-muted-foreground hover:text-foreground border-t transition-colors"
+                    >
+                      {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                      {isExpanded ? "Ocultar detalhes" : "Ver características"}
+                    </button>
+
+                    {/* Features by level */}
+                    {isExpanded && sc.featuresByLevel.length > 0 && (
+                      <div className="px-3 pb-3 space-y-2">
+                        {sc.featuresByLevel
+                          .sort((a, b) => a.level - b.level)
+                          .map((fl) => (
+                            <div key={fl.level}>
+                              <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-1">
+                                Nível {fl.level}
+                                {fl.level > level && (
+                                  <span className="ml-1 text-muted-foreground/50">(bloqueado)</span>
+                                )}
+                              </p>
+                              {fl.features.map((f) => (
+                                <div key={f.name} className={`rounded-md p-2 mb-1 ${
+                                  fl.level <= level ? "bg-secondary/60" : "bg-secondary/20 opacity-60"
+                                }`}>
+                                  <p className="text-xs font-medium">{f.name}</p>
+                                  <p className="text-[11px] text-muted-foreground mt-0.5">{f.description}</p>
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+    </Section>
   );
 }

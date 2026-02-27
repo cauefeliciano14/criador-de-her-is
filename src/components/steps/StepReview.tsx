@@ -4,6 +4,7 @@ import { races } from "@/data/races";
 import { classes } from "@/data/classes";
 import { backgrounds } from "@/data/backgrounds";
 import { spells as spellsData } from "@/data/spells";
+import { featsById } from "@/data/feats";
 import { itemsById } from "@/data/items";
 import type { ArmorProperties, WeaponProperties } from "@/data/items";
 import {
@@ -12,20 +13,30 @@ import {
 } from "@/utils/calculations";
 import { validateCharacterCompleteness } from "@/utils/validation";
 import {
+  downloadCharacterJSON, generateSummaryText,
+  readFileAsJSON, validateImportPayload, exportSharePayload, sharePayloadToBase64,
+} from "@/utils/export";
+import {
   CheckCircle2, AlertCircle, Download, Copy, Printer, ArrowLeft,
-  ChevronDown, Shield, Swords, Wand2, BookOpen, Users, Scroll,
+  ChevronDown, Shield, Swords, Wand2, BookOpen, Users, Scroll, Star,
+  Upload, Share2, FileText,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
 export function StepReview() {
   const char = useCharacterStore();
   const builder = useBuilderStore();
   const [copied, setCopied] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+  const navigate = useNavigate();
 
   const race = races.find((r) => r.id === char.race);
   const subrace = race?.subraces.find((sr) => sr.id === char.subrace);
@@ -34,81 +45,79 @@ export function StepReview() {
   const isSpellcaster = cls?.spellcasting != null;
 
   const finalScores = useMemo(
-    () => getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses),
+    () => getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses, char.featAbilityBonuses),
     [char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses]
   );
 
-  const validation = useMemo(() => validateCharacterCompleteness(char), [
+  const validation = useMemo(() => validateCharacterCompleteness(char, builder.choicesRequirements?.needsStep ?? false), [
     char.race, char.subrace, char.class, char.background,
     char.abilityGeneration.confirmed, char.abilityGeneration.method,
     char.classSkillChoices, char.classEquipmentChoice,
     char.spells.cantrips, char.spells.prepared, char.spells.spellcastingAbility,
     char.raceAbilityChoices, char.backgroundAbilityChoices,
     char.inventory, char.equipped, char.features,
+    builder.choicesRequirements?.needsStep,
   ]);
 
-  // Sync step completion
-  useEffect(() => {
-    if (validation.isComplete) {
-      builder.completeStep("review");
-      builder.setMissing("review", []);
-    } else {
-      builder.uncompleteStep("review");
-      builder.setMissing(
-        "review",
-        validation.missing.map((m) => m.label)
-      );
-    }
-  }, [validation.isComplete, validation.missing.length]);
+  // Step completion is now managed by StepSheet parent
 
   const goToStep = (stepId: string) => builder.goToStep(stepId as StepId);
 
   // ── Export handlers ──
   const handleExport = () => {
-    const data = buildExportData(char, race, subrace, cls, bg);
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `personagem-${(char.name || "sem-nome").toLowerCase().replace(/\s+/g, "-")}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadCharacterJSON(char);
+    toast({ title: "Exportado!", description: "Arquivo JSON baixado com sucesso." });
   };
 
-  const summaryText = useMemo(() => {
-    const lines: string[] = [];
-    lines.push(`${char.name || "Sem nome"} — ${race?.name ?? "?"} ${cls?.name ?? "?"} ${char.level}`);
-    lines.push(`Antecedente: ${bg?.name ?? "?"}`);
-    lines.push(`CA ${char.armorClass} | PV ${char.hitPoints.max} | Desl. ${char.speed}m | Prof. +${char.proficiencyBonus}`);
-    lines.push(
-      `Atributos: ${ABILITIES.map((a) => {
-        const v = finalScores[a];
-        const m = calcAbilityMod(v);
-        return `${ABILITY_SHORT[a]} ${v} (${m >= 0 ? "+" : ""}${m})`;
-      }).join(", ")}`
-    );
-    if (char.savingThrows.length) lines.push(`Salvaguardas: ${char.savingThrows.join(", ")}`);
-    if (char.skills.length) lines.push(`Perícias: ${[...char.skills].sort((a, b) => a.localeCompare(b, "pt-BR")).join(", ")}`);
-    if (char.attacks.length) {
-      lines.push(`Ataques: ${char.attacks.map((a) => `${a.name} +${a.attackBonus} (${a.damage.split(" (")[0]})`).join("; ")}`);
-    }
-    if (isSpellcaster) {
-      lines.push(`Conjuração: CD ${char.spells.spellSaveDC} | Ataque +${char.spells.spellAttackBonus}`);
-    }
-    return lines.join("\n");
-  }, [char, race, cls, bg, finalScores, isSpellcaster]);
-
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(summaryText);
+    const text = generateSummaryText(char);
+    await navigator.clipboard.writeText(text);
     setCopied(true);
+    toast({ title: "Copiado!", description: "Resumo copiado para a área de transferência." });
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handlePrint = () => window.print();
+  const handlePrint = () => navigate("/print");
 
-  const visibleSteps = builder.getVisibleSteps(isSpellcaster);
+  const handleShare = async () => {
+    const payload = exportSharePayload(char);
+    const b64 = sharePayloadToBase64(payload);
+    await navigator.clipboard.writeText(b64);
+    toast({ title: "Link copiado!", description: "Payload compartilhável copiado (Base64)." });
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const raw = await readFileAsJSON(file);
+      const result = validateImportPayload(raw);
+      if (!result.success) {
+        toast({
+          title: "Erro na importação",
+          description: result.errors.join("\n"),
+          variant: "destructive",
+        });
+        return;
+      }
+      if (result.warnings.length > 0) {
+        toast({ title: "Aviso", description: result.warnings.join("\n") });
+      }
+      if (result.data) {
+        char.patchCharacter(result.data as any);
+        char.recalc();
+        toast({ title: "Importado!", description: "Personagem importado com sucesso." });
+      }
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message ?? "Falha ao ler arquivo.", variant: "destructive" });
+    }
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const visibleSteps = builder.getVisibleSteps();
   const lastIncompleteStep = visibleSteps.find(
-    (s) => s.id !== "review" && !builder.completedSteps.includes(s.id)
+    (s) => s.id !== "sheet" && !builder.completedSteps.includes(s.id)
   );
 
   return (
@@ -364,11 +373,11 @@ export function StepReview() {
           <p className="text-sm text-muted-foreground">Nenhuma característica registrada.</p>
         ) : (
           <div className="space-y-2">
-            {groupFeatures(char.features).map(([group, feats]) => (
+            {groupFeaturesWithLevel(char.features).map(([group, feats]) => (
               <div key={group}>
                 <p className="text-xs uppercase text-muted-foreground font-semibold mb-1">{group}</p>
-                {feats.map((f) => (
-                  <Collapsible key={`${f.sourceId}-${f.name}`}>
+                {feats.map((f, i) => (
+                  <Collapsible key={`${f.sourceId}-${f.name}-${i}`}>
                     <CollapsibleTrigger className="flex items-center gap-2 w-full rounded-md px-3 py-2 hover:bg-secondary/40 transition-colors text-left">
                       <ChevronDown className="h-3.5 w-3.5 text-muted-foreground transition-transform" />
                       <span className="text-sm font-medium">{f.name}</span>
@@ -383,6 +392,39 @@ export function StepReview() {
           </div>
         )}
       </Section>
+
+      {/* ── Seção Talentos ── */}
+      {char.appliedFeats.length > 0 && (
+        <>
+          <SectionTitle icon={<Star className="h-4 w-4" />} title="Talentos" />
+          <Section>
+            <div className="space-y-2">
+              {char.appliedFeats.map((af, i) => {
+                const feat = featsById[af.featId];
+                const sourceName = af.source === "background" ? "Antecedente" : `Level Up (Nv. ${af.levelTaken})`;
+                return (
+                  <div key={`${af.featId}-${i}`} className="rounded-lg border p-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium text-sm">{feat?.name ?? af.featId}</span>
+                      <span className="text-[10px] text-muted-foreground bg-secondary rounded-full px-2 py-0.5">
+                        {sourceName}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{feat?.description ?? ""}</p>
+                    {af.choices?.abilityIncreases && Object.keys(af.choices.abilityIncreases).some(k => (af.choices!.abilityIncreases![k as AbilityKey] ?? 0) > 0) && (
+                      <div className="mt-1 flex gap-1.5 flex-wrap">
+                        {Object.entries(af.choices.abilityIncreases).filter(([, v]) => v && v > 0).map(([k, v]) => (
+                          <Tag key={k}>{ABILITY_SHORT[k as AbilityKey]} +{v}</Tag>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </Section>
+        </>
+      )}
 
       {/* ── Seção 5: Magias ── */}
       {isSpellcaster && cls?.spellcasting && (
@@ -515,11 +557,25 @@ export function StepReview() {
         <Button onClick={handleExport}>
           <Download className="h-4 w-4 mr-1" /> Exportar JSON
         </Button>
+        <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
+          <Upload className="h-4 w-4 mr-1" /> Importar JSON
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json,application/json"
+          onChange={handleImport}
+          className="hidden"
+          aria-label="Importar arquivo JSON"
+        />
         <Button variant="secondary" onClick={handleCopy}>
           <Copy className="h-4 w-4 mr-1" /> {copied ? "Copiado!" : "Copiar Resumo"}
         </Button>
+        <Button variant="secondary" onClick={handleShare}>
+          <Share2 className="h-4 w-4 mr-1" /> Compartilhar
+        </Button>
         <Button variant="secondary" onClick={handlePrint}>
-          <Printer className="h-4 w-4 mr-1" /> Imprimir
+          <FileText className="h-4 w-4 mr-1" /> Ficha para Impressão
         </Button>
       </div>
     </div>
@@ -586,32 +642,15 @@ function groupFeatures(features: { sourceType: string; name: string; description
   return Object.entries(groups);
 }
 
-function buildExportData(char: any, race: any, subrace: any, cls: any, bg: any) {
-  return {
-    name: char.name || "Sem nome",
-    level: char.level,
-    race: race?.name ?? null,
-    subrace: subrace?.name ?? null,
-    class: cls?.name ?? null,
-    subclass: char.subclass,
-    background: bg?.name ?? null,
-    abilityScores: char.abilityScores,
-    racialBonuses: char.racialBonuses,
-    backgroundBonuses: char.backgroundBonuses,
-    abilityMods: char.abilityMods,
-    proficiencyBonus: char.proficiencyBonus,
-    hitPoints: char.hitPoints,
-    armorClass: char.armorClass,
-    speed: char.speed,
-    savingThrows: char.savingThrows,
-    skills: char.skills,
-    proficiencies: char.proficiencies,
-    features: char.features,
-    equipment: char.equipment,
-    inventory: char.inventory,
-    equipped: char.equipped,
-    gold: char.gold,
-    attacks: char.attacks,
-    spells: char.spells,
-  };
+function groupFeaturesWithLevel(features: { sourceType: string; name: string; description: string; sourceId: string; level?: number }[]) {
+  const groups: Record<string, typeof features> = {};
+  for (const f of features) {
+    let key = SOURCE_LABELS[f.sourceType] ?? f.sourceType;
+    // For class features, group by level
+    if (f.sourceType === "class" && f.level) {
+      key = `${key} — Nível ${f.level}`;
+    }
+    (groups[key] ??= []).push(f);
+  }
+  return Object.entries(groups);
 }

@@ -1,7 +1,9 @@
 import { useState, useMemo, useCallback } from "react";
-import { useCharacterStore, type NormalizedFeature, type LevelingChangeSummary, type ASIOrFeatChoice } from "@/state/characterStore";
+import { useCharacterStore, type NormalizedFeature, type LevelingChangeSummary, type ASIOrFeatChoice, type AppliedFeat } from "@/state/characterStore";
 import { classes } from "@/data/classes";
-import { feats } from "@/data/feats";
+import { feats, featsById } from "@/data/feats";
+import { computeFeatAbilityBonuses } from "@/utils/feats";
+import { FeatPicker, type FeatSelection } from "@/components/FeatPicker";
 import { spells as spellsData } from "@/data/spells";
 import {
   ABILITIES, ABILITY_LABELS, ABILITY_SHORT, calcAbilityMod, calcProficiencyBonus,
@@ -123,7 +125,7 @@ function LevelUpWizard({ cls, fromLevel, toLevel, onClose }: {
       Inteligência: "int", Sabedoria: "wis", Carisma: "cha",
     };
     const scKey = abilityMap[sc.ability];
-    const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses);
+    const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses, char.featAbilityBonuses);
     const scMod = scKey ? calcAbilityMod(finalScores[scKey]) : 0;
 
     const getCantrips = (lvl: number) => {
@@ -154,7 +156,7 @@ function LevelUpWizard({ cls, fromLevel, toLevel, onClose }: {
   const newProfBonus = calcProficiencyBonus(toLevel);
 
   // CON mod for HP
-  const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses);
+  const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses, char.featAbilityBonuses);
   const conMod = calcAbilityMod(finalScores.con);
 
   const hpGain = hpMethod === "average" ? averageHP + conMod :
@@ -251,11 +253,40 @@ function LevelUpWizard({ cls, fromLevel, toLevel, onClose }: {
       })),
     ];
 
-    // Apply ASI bonuses
+    // Apply ASI bonuses (from ASI choice via old system)
     let newAsiBonuses = { ...char.asiBonuses };
-    if (needsASI && asiChoice.type === "asi" && asiChoice.asi) {
-      for (const [k, v] of Object.entries(asiChoice.asi)) {
-        if (v) newAsiBonuses[k as AbilityKey] = (newAsiBonuses[k as AbilityKey] ?? 0) + v;
+    let newAppliedFeats = [...char.appliedFeats];
+    let newFeatAbilityBonuses = { ...char.featAbilityBonuses };
+
+    if (needsASI) {
+      if (asiChoice.type === "asi" && asiChoice.asi) {
+        // ASI feat
+        const appliedFeat: AppliedFeat = {
+          featId: "aumentoAtributo",
+          levelTaken: toLevel,
+          source: "levelUp",
+          choices: { abilityIncreases: asiChoice.asi },
+        };
+        newAppliedFeats.push(appliedFeat);
+        for (const [k, v] of Object.entries(asiChoice.asi)) {
+          if (v) newAsiBonuses[k as AbilityKey] = (newAsiBonuses[k as AbilityKey] ?? 0) + v;
+        }
+      } else if (asiChoice.type === "feat" && asiChoice.featId) {
+        const feat = featsById[asiChoice.featId];
+        const appliedFeat: AppliedFeat = {
+          featId: asiChoice.featId,
+          levelTaken: toLevel,
+          source: "levelUp",
+          choices: asiChoice.featId === "aumentoAtributo" ? { abilityIncreases: asiChoice.asi ?? {} } : undefined,
+        };
+        newAppliedFeats.push(appliedFeat);
+
+        // Apply feat's fixed ability bonuses (like +1 CON from Constituição Resistente)
+        if (feat?.effects.abilityIncrease && feat.effects.abilityIncrease.mode === "plus1" && feat.effects.abilityIncrease.abilities) {
+          for (const ab of feat.effects.abilityIncrease.abilities) {
+            newFeatAbilityBonuses[ab] = (newFeatAbilityBonuses[ab] ?? 0) + 1;
+          }
+        }
       }
     }
 
@@ -313,6 +344,8 @@ function LevelUpWizard({ cls, fromLevel, toLevel, onClose }: {
     char.patchCharacter({
       level: toLevel,
       asiBonuses: newAsiBonuses,
+      appliedFeats: newAppliedFeats,
+      featAbilityBonuses: newFeatAbilityBonuses,
       features: [
         ...char.features,
         ...addedFeatures,
@@ -399,11 +432,12 @@ function LevelUpWizard({ cls, fromLevel, toLevel, onClose }: {
           />
         )}
         {currentStep === "asi" && (
-          <StepASI
+          <StepASIWithPicker
             asiChoice={asiChoice}
             onChangeChoice={setAsiChoice}
             currentScores={finalScores}
             asiBonuses={char.asiBonuses}
+            takenFeatIds={char.appliedFeats.map((f) => f.featId)}
           />
         )}
         {currentStep === "spells" && spellChanges && (
@@ -560,6 +594,8 @@ function StepSubclass({ cls, selected, onSelect }: {
   selected: string | null;
   onSelect: (id: string) => void;
 }) {
+  const [expandedId, setExpandedId] = useState<string | null>(selected);
+
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -569,31 +605,72 @@ function StepSubclass({ cls, selected, onSelect }: {
         No nível {cls.subclassLevel ?? "?"}, você deve escolher uma subclasse para {cls.name}.
       </p>
       <div className="space-y-2">
-        {[...cls.subclasses].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")).map((sc) => (
-          <button
-            key={sc.id}
-            onClick={() => onSelect(sc.id)}
-            className={`w-full rounded-lg border p-4 text-left transition-colors ${
-              selected === sc.id ? "border-primary bg-primary/10" : "hover:bg-secondary/50"
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <p className="font-semibold">{sc.name}</p>
-              {selected === sc.id && <CheckCircle2 className="h-4 w-4 text-primary" />}
+        {[...cls.subclasses].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")).map((sc) => {
+          const isSel = selected === sc.id;
+          const isExpanded = expandedId === sc.id;
+          return (
+            <div key={sc.id} className={`rounded-lg border transition-colors ${
+              isSel ? "border-primary bg-primary/5" : "hover:bg-secondary/50"
+            }`}>
+              <button
+                onClick={() => { onSelect(sc.id); setExpandedId(sc.id); }}
+                className="w-full p-4 text-left"
+              >
+                <div className="flex items-center justify-between">
+                  <p className="font-semibold">{sc.name}</p>
+                  <div className="flex items-center gap-2">
+                    {isSel && (
+                      <span className="text-[10px] font-medium text-primary bg-primary/10 rounded-full px-2 py-0.5">
+                        Selecionado
+                      </span>
+                    )}
+                    {isSel && <CheckCircle2 className="h-4 w-4 text-primary" />}
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">{sc.description}</p>
+              </button>
+
+              {/* Toggle features */}
+              <button
+                onClick={() => setExpandedId(isExpanded ? null : sc.id)}
+                className="w-full flex items-center justify-center gap-1 py-1.5 text-[10px] text-muted-foreground hover:text-foreground border-t transition-colors"
+              >
+                {isExpanded ? "▲ Ocultar detalhes" : "▼ Ver características por nível"}
+              </button>
+
+              {isExpanded && sc.featuresByLevel.length > 0 && (
+                <div className="px-4 pb-3 space-y-2">
+                  {sc.featuresByLevel
+                    .sort((a, b) => a.level - b.level)
+                    .map((fl) => (
+                      <div key={fl.level}>
+                        <p className="text-[10px] uppercase text-muted-foreground font-semibold mb-1">
+                          Nível {fl.level}
+                        </p>
+                        {fl.features.map((f) => (
+                          <div key={f.name} className="rounded-md bg-secondary/40 p-2 mb-1">
+                            <p className="text-xs font-medium">{f.name}</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">{f.description}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                </div>
+              )}
             </div>
-            <p className="text-sm text-muted-foreground mt-1">{sc.description}</p>
-          </button>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function StepASI({ asiChoice, onChangeChoice, currentScores, asiBonuses }: {
+function StepASIWithPicker({ asiChoice, onChangeChoice, currentScores, asiBonuses, takenFeatIds }: {
   asiChoice: ASIOrFeatChoice;
   onChangeChoice: (c: ASIOrFeatChoice) => void;
   currentScores: Record<AbilityKey, number>;
   asiBonuses: Record<AbilityKey, number>;
+  takenFeatIds: string[];
 }) {
   const asiTotal = Object.values(asiChoice.asi ?? {}).reduce((s, v) => s + (v ?? 0), 0);
 
@@ -604,9 +681,12 @@ function StepASI({ asiChoice, onChangeChoice, currentScores, asiBonuses }: {
     const newAsi = { ...asiChoice.asi, [ability]: newVal };
     const newTotal = Object.values(newAsi).reduce((s, v) => s + (v ?? 0), 0);
     if (newTotal > 2) return;
-    // Check cap 20
     if (currentScores[ability] + (asiBonuses[ability] ?? 0) + newVal > 20) return;
     onChangeChoice({ type: "asi", asi: newAsi });
+  };
+
+  const handleFeatSelect = (selection: FeatSelection) => {
+    onChangeChoice({ type: "feat", featId: selection.featId });
   };
 
   return (
@@ -615,7 +695,6 @@ function StepASI({ asiChoice, onChangeChoice, currentScores, asiBonuses }: {
         <ArrowUp className="h-5 w-5 text-primary" /> Aumento de Atributo ou Talento
       </h3>
 
-      {/* Toggle */}
       <div className="flex gap-2">
         <Button
           variant={asiChoice.type === "asi" ? "default" : "outline"}
@@ -675,24 +754,14 @@ function StepASI({ asiChoice, onChangeChoice, currentScores, asiBonuses }: {
 
       {asiChoice.type === "feat" && (
         <div>
-          <p className="text-sm text-muted-foreground mb-3">Escolha um talento.</p>
-          <div className="space-y-2 max-h-60 overflow-y-auto">
-            {[...feats].filter((f) => f.type === "general").sort((a, b) => a.name.localeCompare(b.name, "pt-BR")).map((feat) => (
-              <button
-                key={feat.id}
-                onClick={() => onChangeChoice({ type: "feat", featId: feat.id })}
-                className={`w-full rounded-lg border p-3 text-left transition-colors ${
-                  asiChoice.featId === feat.id ? "border-primary bg-primary/10" : "hover:bg-secondary/50"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <p className="font-medium text-sm">{feat.name}</p>
-                  {asiChoice.featId === feat.id && <CheckCircle2 className="h-4 w-4 text-primary" />}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{feat.description}</p>
-              </button>
-            ))}
-          </div>
+          <p className="text-sm text-muted-foreground mb-3">Escolha um talento:</p>
+          <FeatPicker
+            allowedTypes={["general"]}
+            selectedFeatId={asiChoice.featId}
+            takenFeatIds={takenFeatIds}
+            onSelect={handleFeatSelect}
+            showASIControls={false}
+          />
         </div>
       )}
     </div>

@@ -1,9 +1,29 @@
 import { useState, useEffect, useCallback } from "react";
 import { useCharacterStore, mergeUnique, replaceFeatures, type NormalizedFeature } from "@/state/characterStore";
+import { applyRaceEffects } from "@/rules/engine/applyRaceEffects";
 import { useBuilderStore } from "@/state/builderStore";
-import { races, type RaceData, type Subrace, type RaceAbilityBonuses } from "@/data/races";
-import { ABILITIES, ABILITY_LABELS, ABILITY_SHORT, type AbilityKey } from "@/utils/calculations";
+import {
+  races,
+  DRAGONBORN_HERITAGES,
+  ELF_LINEAGES,
+  type RaceData,
+  type Subrace,
+} from "@/data/races";
+import { ABILITY_LABELS, ABILITY_SHORT, type AbilityKey } from "@/utils/calculations";
 import { CheckCircle2, Search, Info, ChevronDown, ChevronUp } from "lucide-react";
+
+const DRACONIC_ANCESTRIES = [
+  { id: "azul", name: "Azul", damage: "Elétrico" },
+  { id: "branco", name: "Branco", damage: "Gélido" },
+  { id: "bronze", name: "Bronze", damage: "Elétrico" },
+  { id: "cobre", name: "Cobre", damage: "Ácido" },
+  { id: "latao", name: "Latão", damage: "Ígneo" },
+  { id: "negro", name: "Negro", damage: "Ácido" },
+  { id: "ouro", name: "Ouro", damage: "Ígneo" },
+  { id: "prata", name: "Prata", damage: "Gélido" },
+  { id: "verde", name: "Verde", damage: "Venenoso" },
+  { id: "vermelho", name: "Vermelho", damage: "Ígneo" },
+];
 
 export function StepRace() {
   const [search, setSearch] = useState("");
@@ -12,6 +32,7 @@ export function StepRace() {
   const raceId = useCharacterStore((s) => s.race);
   const subraceId = useCharacterStore((s) => s.subrace);
   const raceAbilityChoices = useCharacterStore((s) => s.raceAbilityChoices);
+  const char = useCharacterStore();
   const patchCharacter = useCharacterStore((s) => s.patchCharacter);
   const completeStep = useBuilderStore((s) => s.completeStep);
   const uncompleteStep = useBuilderStore((s) => s.uncompleteStep);
@@ -83,6 +104,7 @@ export function StepRace() {
       race: id,
       subrace: null,
       raceAbilityChoices: {},
+      raceChoices: {}, // Reset race choices
       speed: race.speed,
       racialBonuses: newBonuses,
       features: newFeatures,
@@ -144,7 +166,7 @@ export function StepRace() {
     if (!chooseConfig) return;
 
     const currentChoices = { ...raceAbilityChoices };
-    const currentCount = Object.values(currentChoices).filter((v) => v && v > 0).length;
+    const currentCount = Object.values(currentChoices).filter((v): v is number => v !== undefined && v > 0).length;
 
     if (currentChoices[ability]) {
       // Remove choice
@@ -180,20 +202,24 @@ export function StepRace() {
 
     // Race ability bonus choices
     if (race.abilityBonuses.mode === "choose" && race.abilityBonuses.choose) {
-      const choiceCount = Object.values(raceAbilityChoices).filter((v) => v && v > 0).length;
+      const choiceCount = Object.values(raceAbilityChoices).filter((v): v is number => v !== undefined && v > 0).length;
       if (choiceCount < race.abilityBonuses.choose.choices) {
         missing.push(`Definir bônus de atributo (${choiceCount}/${race.abilityBonuses.choose.choices})`);
       }
     }
 
-    // Subrace ability bonus choices (future)
-    const subrace = race.subraces.find((sr) => sr.id === subraceId);
-    if (subrace?.abilityBonuses.mode === "choose" && subrace.abilityBonuses.choose) {
-      // Not yet implemented
+    // Special choices
+    if (raceId === "draconato" && !char.raceChoices.dragonbornHeritage) {
+      missing.push("Escolher Herança Dracônica");
+    }
+
+    // Race choice validation
+    if (selectedRace?.raceChoice?.required && !char.raceChoices.raceChoice) {
+      missing.push(`Escolher ${selectedRace.raceChoice.label}`);
     }
 
     return { valid: missing.length === 0, missing };
-  }, [raceId, subraceId, raceAbilityChoices]);
+  }, [raceId, subraceId, raceAbilityChoices, char.raceChoices]);
 
   // Sync validation
   useEffect(() => {
@@ -207,6 +233,16 @@ export function StepRace() {
     }
   }, [raceId, subraceId, raceAbilityChoices, getValidation]);
 
+  // Apply race choice effects
+  useEffect(() => {
+    if (selectedRace?.raceChoice && char.raceChoices.raceChoice) {
+      const effects = applyRaceEffects(char);
+      if (Object.keys(effects).length > 0) {
+        patchCharacter(effects);
+      }
+    }
+  }, [selectedRace?.id, char.raceChoices.raceChoice]);
+
   const toggleTrait = (name: string) => {
     setExpandedTraits((prev) => ({ ...prev, [name]: !prev[name] }));
   };
@@ -215,13 +251,13 @@ export function StepRace() {
 
   // Choose mode config
   const chooseConfig = selectedRace?.abilityBonuses.mode === "choose" ? selectedRace.abilityBonuses.choose : null;
-  const choiceCount = Object.values(raceAbilityChoices).filter((v) => v && v > 0).length;
+  const choiceCount = Object.values(raceAbilityChoices).filter((v): v is number => v !== undefined && v > 0).length;
 
   return (
     <div className="flex gap-0 h-full">
       {/* Left: Race list */}
       <div className="w-72 shrink-0 border-r p-4 overflow-y-auto">
-        <h2 className="mb-3 text-lg font-bold">2. Escolha sua Raça</h2>
+        <h2 className="mb-3 text-lg font-bold">3. Escolha sua Raça</h2>
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -510,6 +546,74 @@ export function StepRace() {
                           </button>
                         );
                       })}
+                  </div>
+                </Section>
+              )}
+
+              {/* Race Choice */}
+              {selectedRace.raceChoice && (
+                <Section title={selectedRace.raceChoice.label}>
+                  {!char.raceChoices.raceChoice && selectedRace.raceChoice.required && (
+                    <div className="flex items-center gap-2 mb-3 text-info">
+                      <Info className="h-4 w-4" />
+                      <span className="text-sm font-medium">Obrigatório — selecione uma opção</span>
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    {selectedRace.raceChoice.options.map((option) => {
+                      const isSelected = char.raceChoices.raceChoice?.optionId === option.id;
+                      return (
+                        <button
+                          key={option.id}
+                          onClick={() => patchCharacter({ raceChoices: { ...char.raceChoices, raceChoice: { kind: selectedRace.raceChoice!.kind, optionId: option.id } } })}
+                          className={`w-full rounded-lg border p-4 text-left transition-all ${
+                            isSelected
+                              ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                              : "hover:border-muted-foreground/40 hover:bg-secondary"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-sm">{option.name}</span>
+                            {isSelected && <CheckCircle2 className="h-4 w-4 text-primary" />}
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">{option.description}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Section>
+              )}
+
+              {/* Dragonborn Heritage */}
+              {selectedRace.id === "draconato" && (
+                <Section title="Herança Dracônica">
+                  {!char.raceChoices.dragonbornHeritage && (
+                    <div className="flex items-center gap-2 mb-3 text-info">
+                      <Info className="h-4 w-4" />
+                      <span className="text-sm font-medium">Obrigatório — selecione uma herança</span>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {DRACONIC_ANCESTRIES.map((ancestry) => {
+                      const isSelected = char.raceChoices.dragonbornHeritage === ancestry.id;
+                      return (
+                        <button
+                          key={ancestry.id}
+                          onClick={() => patchCharacter({ raceChoices: { ...char.raceChoices, dragonbornHeritage: ancestry.id as import("@/data/races").DragonbornHeritageId } })}
+                          className={`rounded-lg border p-3 text-left transition-all ${
+                            isSelected
+                              ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                              : "hover:border-muted-foreground/40 hover:bg-secondary"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-sm">{ancestry.name}</span>
+                            {isSelected && <CheckCircle2 className="h-4 w-4 text-primary" />}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">{ancestry.damage}</p>
+                        </button>
+                      );
+                    })}
                   </div>
                 </Section>
               )}

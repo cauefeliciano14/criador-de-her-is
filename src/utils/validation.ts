@@ -19,7 +19,12 @@ export interface ValidationResult {
   warnings: ValidationItem[];
 }
 
-export function validateCharacterCompleteness(char: CharacterState): ValidationResult {
+/**
+ * Step mapping for the new wizard order:
+ * 1: class, 2: origin, 3: race, 4: abilities, 5: equipment, 6: sheet
+ */
+
+export function validateCharacterCompleteness(char: CharacterState, useChoicesStep: boolean = false): ValidationResult {
   const missing: ValidationItem[] = [];
   const warnings: ValidationItem[] = [];
 
@@ -32,8 +37,8 @@ export function validateCharacterCompleteness(char: CharacterState): ValidationR
     missing.push({
       id: "ability-method",
       label: "Método de atributos não selecionado ou não confirmado",
-      stepId: "ability-method",
-      stepNumber: 1,
+      stepId: "abilities",
+      stepNumber: 4,
       severity: "required",
     });
   }
@@ -44,7 +49,7 @@ export function validateCharacterCompleteness(char: CharacterState): ValidationR
       id: "race-select",
       label: "Raça não selecionada",
       stepId: "race",
-      stepNumber: 2,
+      stepNumber: 3,
       severity: "required",
     });
   } else if (race && race.subraces.length > 0 && !char.subrace) {
@@ -52,7 +57,7 @@ export function validateCharacterCompleteness(char: CharacterState): ValidationR
       id: "subrace-select",
       label: "Sub-raça obrigatória não selecionada",
       stepId: "race",
-      stepNumber: 2,
+      stepNumber: 3,
       severity: "required",
     });
   }
@@ -68,10 +73,21 @@ export function validateCharacterCompleteness(char: CharacterState): ValidationR
         id: "race-ability-choices",
         label: `Bônus de atributo da raça incompletos (${chosen}/${choicesNeeded})`,
         stepId: "race",
-        stepNumber: 2,
+        stepNumber: 3,
         severity: "required",
       });
     }
+  }
+
+  // Race choices (e.g., Draconato ancestralidade)
+  if (char.race === "draconato" && !char.raceChoices.draconato?.ancestralidade) {
+    missing.push({
+      id: "draconato-ancestralidade",
+      label: "Ancestralidade dracônica não escolhida",
+      stepId: "race",
+      stepNumber: 3,
+      severity: "required",
+    });
   }
 
   // 3. Class
@@ -80,7 +96,7 @@ export function validateCharacterCompleteness(char: CharacterState): ValidationR
       id: "class-select",
       label: "Classe não selecionada",
       stepId: "class",
-      stepNumber: 3,
+      stepNumber: 1,
       severity: "required",
     });
   } else if (cls) {
@@ -91,10 +107,75 @@ export function validateCharacterCompleteness(char: CharacterState): ValidationR
       missing.push({
         id: "class-skills",
         label: `Perícias de classe incompletas (${chosen}/${needed})`,
-        stepId: "skills",
-        stepNumber: 5,
+        stepId: useChoicesStep ? "choices" : "sheet",
+        stepNumber: useChoicesStep ? 6 : 6,
         severity: "required",
       });
+    }
+
+    // Subclass required check
+    if (
+      cls.subclassLevel != null &&
+      cls.subclasses.length > 0 &&
+      char.level >= cls.subclassLevel &&
+      !char.subclass
+    ) {
+      missing.push({
+        id: "subclass-select",
+        label: `Subclasse obrigatória no nível ${cls.subclassLevel}`,
+        stepId: "class",
+        stepNumber: 1,
+        severity: "required",
+      });
+    }
+
+    // ── Class Feature Choices ──
+    const cfc = char.classFeatureChoices ?? {};
+
+    // Cleric: Divine Order
+    if (char.class === "clerigo" && !cfc["clerigo:ordemDivina"]) {
+      missing.push({
+        id: "clerigo-ordem-divina",
+        label: "Ordem Divina não escolhida (Clérigo)",
+        stepId: "class",
+        stepNumber: 1,
+        severity: "required",
+      });
+    }
+
+    // Druid: Primal Order
+    if (char.class === "druida" && !cfc["druida:ordemPrimal"]) {
+      missing.push({
+        id: "druida-ordem-primal",
+        label: "Ordem Primal não escolhida (Druida)",
+        stepId: "class",
+        stepNumber: 1,
+        severity: "required",
+      });
+    }
+
+    // Expertise validations
+    const expertiseChecks: { key: string; count: number; label: string; minLevel: number }[] = [
+      { key: "ladino:especialista", count: 2, label: "Especialização do Ladino", minLevel: 1 },
+      { key: "bardo:especialista", count: 2, label: "Especialização do Bardo", minLevel: 2 },
+      { key: "guardiao:exploradorHabil:especialista", count: 1, label: "Explorador Hábil (Guardião)", minLevel: 2 },
+      { key: "mago:academico", count: 1, label: "Acadêmico (Mago)", minLevel: 2 },
+    ];
+
+    for (const check of expertiseChecks) {
+      if (char.class !== check.key.split(":")[0]) continue;
+      if (char.level < check.minLevel) continue;
+      const val = cfc[check.key];
+      const chosen = Array.isArray(val) ? val.length : (typeof val === "string" ? 1 : 0);
+      if (chosen < check.count) {
+        missing.push({
+          id: `expertise-${check.key}`,
+          label: `${check.label}: ${chosen}/${check.count} escolhido(s)`,
+          stepId: useChoicesStep ? "choices" : "sheet",
+          stepNumber: useChoicesStep ? 6 : 6,
+          severity: "required",
+        });
+      }
     }
   }
 
@@ -103,8 +184,8 @@ export function validateCharacterCompleteness(char: CharacterState): ValidationR
     missing.push({
       id: "bg-select",
       label: "Antecedente não selecionado",
-      stepId: "background",
-      stepNumber: 4,
+      stepId: "origin",
+      stepNumber: 2,
       severity: "required",
     });
   }
@@ -119,7 +200,7 @@ export function validateCharacterCompleteness(char: CharacterState): ValidationR
       missing.push({
         id: "bg-ability-choices",
         label: `Bônus de atributo do antecedente incompletos (${chosen}/${choicesNeeded})`,
-        stepId: "background",
+        stepId: "abilities",
         stepNumber: 4,
         severity: "required",
       });
@@ -132,12 +213,12 @@ export function validateCharacterCompleteness(char: CharacterState): ValidationR
       (f) => f.sourceType === "background" && f.tags?.includes("originFeat")
     );
     if (!hasFeat) {
-      warnings.push({
+      missing.push({
         id: "origin-feat",
         label: "Talento de Origem não aplicado",
-        stepId: "background",
-        stepNumber: 4,
-        severity: "warning",
+        stepId: "origin",
+        stepNumber: 2,
+        severity: "required",
       });
     }
   }
@@ -148,7 +229,7 @@ export function validateCharacterCompleteness(char: CharacterState): ValidationR
       id: "equipment-choice",
       label: "Equipamento inicial (A/B) não escolhido",
       stepId: "equipment",
-      stepNumber: 7,
+      stepNumber: 5,
       severity: "required",
     });
   }
@@ -166,26 +247,30 @@ export function validateCharacterCompleteness(char: CharacterState): ValidationR
       missing.push({
         id: "spell-ability",
         label: "Atributo de conjuração não definido",
-        stepId: "spells",
-        stepNumber: 6,
+        stepId: useChoicesStep ? "choices" : "sheet",
+        stepNumber: useChoicesStep ? 6 : 6,
         severity: "required",
       });
     }
 
-    // Cantrips limit
-    const cantripsLimit = getCantripsLimit(sc.cantripsKnownAtLevel, char.level);
+    // Cantrips limit (with bonus from class features)
+    let cantripsLimit = getCantripsLimit(sc.cantripsKnownAtLevel, char.level);
+    const cfc2 = char.classFeatureChoices ?? {};
+    if (char.class === "clerigo" && cfc2["clerigo:ordemDivina"] === "taumaturgo") cantripsLimit += 1;
+    if (char.class === "druida" && cfc2["druida:ordemPrimal"] === "xama") cantripsLimit += 1;
+
     if (cantripsLimit > 0 && char.spells.cantrips.length !== cantripsLimit) {
       missing.push({
         id: "cantrips-count",
         label: `Truques: ${char.spells.cantrips.length}/${cantripsLimit} selecionados`,
-        stepId: "spells",
-        stepNumber: 6,
+        stepId: useChoicesStep ? "choices" : "sheet",
+        stepNumber: useChoicesStep ? 6 : 6,
         severity: "required",
       });
     }
 
     // Prepared/known limit
-    const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses);
+    const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses, char.featAbilityBonuses);
     const scMod = scKey ? calcAbilityMod(finalScores[scKey]) : 0;
     let spellLimit = 0;
     if (sc.type === "prepared") {
@@ -202,8 +287,8 @@ export function validateCharacterCompleteness(char: CharacterState): ValidationR
       missing.push({
         id: "spells-count",
         label: `Magias: ${char.spells.prepared.length}/${spellLimit} selecionadas`,
-        stepId: "spells",
-        stepNumber: 6,
+        stepId: useChoicesStep ? "choices" : "sheet",
+        stepNumber: useChoicesStep ? 6 : 6,
         severity: "required",
       });
     }
@@ -215,7 +300,7 @@ export function validateCharacterCompleteness(char: CharacterState): ValidationR
       id: "empty-inventory",
       label: "Inventário vazio",
       stepId: "equipment",
-      stepNumber: 7,
+      stepNumber: 5,
       severity: "warning",
     });
   }
@@ -228,7 +313,7 @@ export function validateCharacterCompleteness(char: CharacterState): ValidationR
         id: "armor-missing-inv",
         label: "Armadura equipada não encontrada no inventário",
         stepId: "equipment",
-        stepNumber: 7,
+        stepNumber: 5,
         severity: "warning",
       });
     }
@@ -240,7 +325,7 @@ export function validateCharacterCompleteness(char: CharacterState): ValidationR
         id: "shield-missing-inv",
         label: "Escudo equipado não encontrado no inventário",
         stepId: "equipment",
-        stepNumber: 7,
+        stepNumber: 5,
         severity: "warning",
       });
     }
@@ -254,9 +339,8 @@ export function validateCharacterCompleteness(char: CharacterState): ValidationR
 }
 
 function getCantripsLimit(table: Record<number, number>, level: number): number {
-  let limit = 0;
   for (let l = level; l >= 1; l--) {
-    if (table[l] !== undefined) { limit = table[l]; break; }
+    if (table[l] !== undefined) return table[l];
   }
-  return limit;
+  return 0;
 }
