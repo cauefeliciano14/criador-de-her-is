@@ -21,6 +21,8 @@ export interface RaceTrait {
   description: string;
 }
 
+export type AvailabilityStatus = "ready" | "planned";
+
 export interface Subrace {
   id: string;
   name: string;
@@ -35,6 +37,7 @@ export interface RaceChoiceOption {
   id: string;
   name: string;
   description: string;
+  availability?: AvailabilityStatus;
   effects: {
     traits?: RaceTrait[];
     languages?: string[];
@@ -114,7 +117,10 @@ export interface ElfLineageOption {
   id: ElfLineageId;
   name: string;
   level1Benefit: string;
-  spellsByLevel: { level3: string; level5: string };
+  spellsByLevel: {
+    level3: { description: string; availability: AvailabilityStatus };
+    level5: { description: string; availability: AvailabilityStatus };
+  };
 }
 
 export const ELF_LINEAGES: ElfLineageOption[] = [
@@ -123,8 +129,8 @@ export const ELF_LINEAGES: ElfLineageOption[] = [
     name: "Altos Elfos",
     level1Benefit: "Truque adicional da lista de Mago.",
     spellsByLevel: {
-      level3: "Magia de linhagem (nível 3, pendente)",
-      level5: "Magia de linhagem (nível 5, pendente)",
+      level3: { description: "Magia de linhagem (nível 3)", availability: "planned" },
+      level5: { description: "Magia de linhagem (nível 5)", availability: "planned" },
     },
   },
   {
@@ -132,8 +138,8 @@ export const ELF_LINEAGES: ElfLineageOption[] = [
     name: "Drow",
     level1Benefit: "Afinidade com magia sombria de linhagem.",
     spellsByLevel: {
-      level3: "Magia de linhagem (nível 3, pendente)",
-      level5: "Magia de linhagem (nível 5, pendente)",
+      level3: { description: "Magia de linhagem (nível 3)", availability: "planned" },
+      level5: { description: "Magia de linhagem (nível 5)", availability: "planned" },
     },
   },
   {
@@ -141,8 +147,8 @@ export const ELF_LINEAGES: ElfLineageOption[] = [
     name: "Elfos Silvestres",
     level1Benefit: "Afinidade com deslocamento e natureza.",
     spellsByLevel: {
-      level3: "Magia de linhagem (nível 3, pendente)",
-      level5: "Magia de linhagem (nível 5, pendente)",
+      level3: { description: "Magia de linhagem (nível 3)", availability: "planned" },
+      level5: { description: "Magia de linhagem (nível 5)", availability: "planned" },
     },
   },
 ];
@@ -373,6 +379,7 @@ export const races: RaceData[] = [
           id: "altoElfo",
           name: "Altos Elfos",
           description: "Elfos graciosos e eruditos, com afinidade natural pela magia.",
+          availability: "planned",
           effects: {
             traits: [{ name: "Truque Extra", description: "Aprende um truque adicional à sua escolha." }],
           },
@@ -382,6 +389,7 @@ export const races: RaceData[] = [
           id: "drow",
           name: "Drow",
           description: "Elfos das profundezas, com visão superior e magia sombria.",
+          availability: "planned",
           effects: {
             traits: [
               { name: "Visão no Escuro Superior", description: "Visão no escuro até 36m." },
@@ -394,6 +402,7 @@ export const races: RaceData[] = [
           id: "elfoSilvestre",
           name: "Elfos Silvestres",
           description: "Elfos conectados à natureza, mestres da furtividade e arco.",
+          availability: "planned",
           effects: {
             traits: [{ name: "Máscara da Natureza", description: "Pode tentar se esconder mesmo quando levemente obscurecido por folhagem, chuva forte, neve caindo, neblina ou outros fenômenos naturais." }],
           },
@@ -645,3 +654,8 @@ export const races: RaceData[] = [
 export const racesById: Record<string, RaceData> = Object.fromEntries(
   races.map((r) => [r.id, r])
 );
+
+export function hasPlannedRaceContent(race: RaceData | undefined): boolean {
+  if (!race?.raceChoice?.options) return false;
+  return race.raceChoice.options.some((option) => option.availability === "planned");
+}
