@@ -63,12 +63,18 @@ function BuilderContent() {
   const getVisibleSteps = useBuilderStore((s) => s.getVisibleSteps);
 
   const visibleSteps = getVisibleSteps();
+  const fallbackStep = visibleSteps[0]?.id ?? "class";
+  const isKnownStep = currentStep in STEP_COMPONENTS;
+  const isVisibleStep = visibleSteps.some((step) => step.id === currentStep);
+  const validStep = isKnownStep && isVisibleStep ? currentStep : fallbackStep;
 
-  // Guard against stale persisted currentStep not in STEP_COMPONENTS
-  const validStep = currentStep in STEP_COMPONENTS ? currentStep : "class";
-  if (validStep !== currentStep) {
-    goToStep(validStep as StepId);
-  }
+  // Guard against stale persisted currentStep that is unknown or currently hidden.
+  // Important: avoid updating store during render, which can trigger render loops.
+  useEffect(() => {
+    if (validStep !== currentStep) {
+      goToStep(validStep as StepId);
+    }
+  }, [currentStep, validStep, goToStep]);
 
   const currentIdx = visibleSteps.findIndex((s) => s.id === validStep);
   const isFirst = currentIdx <= 0;
