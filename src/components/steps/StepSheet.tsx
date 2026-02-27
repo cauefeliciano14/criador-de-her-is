@@ -164,15 +164,15 @@ function EquipmentSummaryTab() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-lg border bg-card p-3 text-center">
-          <p className="text-[10px] uppercase text-muted-foreground">CA</p>
+          <p className="text-[11px] uppercase font-semibold text-muted-foreground">CA</p>
           <p className="text-2xl font-bold">{char.armorClass}</p>
         </div>
         <div className="rounded-lg border bg-card p-3 text-center">
-          <p className="text-[10px] uppercase text-muted-foreground">Armadura</p>
+          <p className="text-[11px] uppercase font-semibold text-muted-foreground">Armadura</p>
           <p className="text-sm font-medium">{equippedArmor?.name ?? "Nenhuma"}</p>
         </div>
         <div className="rounded-lg border bg-card p-3 text-center">
-          <p className="text-[10px] uppercase text-muted-foreground">Escudo</p>
+          <p className="text-[11px] uppercase font-semibold text-muted-foreground">Escudo</p>
           <p className="text-sm font-medium">{equippedShield?.name ?? "Nenhum"}</p>
         </div>
       </div>
@@ -292,12 +292,12 @@ function FeaturesTab() {
                   <div className="flex items-center gap-2 mb-1">
                     <p className="text-sm font-semibold">{f.name}</p>
                     {f.level && (
-                      <span className="text-[10px] rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
+                      <span className="text-[11px] rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
                         Nível {f.level}
                       </span>
                     )}
                     {f.tags?.includes("originFeat") && (
-                      <span className="text-[10px] rounded bg-primary/10 px-1.5 py-0.5 text-primary font-medium">
+                      <span className="text-[11px] rounded bg-primary/10 px-1.5 py-0.5 text-primary font-medium">
                         Talento de Origem
                       </span>
                     )}
