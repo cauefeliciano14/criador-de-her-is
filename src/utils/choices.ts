@@ -5,20 +5,14 @@ import { calcAbilityMod, getFinalAbilityScores, type AbilityKey } from "@/utils/
 
 export interface ChoicesRequirements {
   needsStep: boolean;
-  skills: {
-    requiredCount: number;
-    chosenIds: string[];
-    options: { id: string; name: string; source: string }[];
-    pendingCount: number;
-  };
   languages: {
-    /** Number of unresolved language placeholders (e.g. "Um idioma adicional à sua escolha") */
+    /** Number of unresolved language placeholders */
     requiredCount: number;
     pendingCount: number;
     placeholders: string[];
   };
   tools: {
-    /** Number of unresolved tool/instrument placeholders (e.g. "Um instrumento musical à sua escolha") */
+    /** Number of unresolved tool/instrument placeholders */
     requiredCount: number;
     pendingCount: number;
     placeholders: string[];
@@ -41,12 +35,21 @@ const PLACEHOLDER_RX = /\bà\s+sua\s+escolha\b/i;
 const LANGUAGE_HINT_RX = /(idioma|idiomas)/i;
 const TOOL_HINT_RX = /(ferramenta|ferramentas|instrumento|instrumentos|jogo|jogos)/i;
 
+/** Count how many individual choices a placeholder represents (e.g. "Três instrumentos" → 3) */
+function countFromPlaceholder(text: string): number {
+  const match = text.match(/\b(dois|duas|três|quatro|cinco)\b/i);
+  if (match) {
+    const map: Record<string, number> = { dois: 2, duas: 2, três: 3, quatro: 4, cinco: 5 };
+    return map[match[1].toLowerCase()] ?? 1;
+  }
+  return 1;
+}
+
 function getPlaceholders(list: string[] | undefined, kind: "language" | "tool"): string[] {
   const src = list ?? [];
   if (kind === "language") {
     return src.filter((s) => PLACEHOLDER_RX.test(s) && LANGUAGE_HINT_RX.test(s));
   }
-  // tool/instrument/game
   return src.filter((s) => PLACEHOLDER_RX.test(s) && TOOL_HINT_RX.test(s));
 }
 
@@ -61,26 +64,13 @@ function getCantripsLimit(table: Record<number, number> | undefined, level: numb
 export function getChoicesRequirements(char: CharacterState): ChoicesRequirements {
   const cls = classes.find((c) => c.id === char.class);
 
-  // ── Skills ──
-  let skillsRequired = 0;
-  const skillsChosen = char.classSkillChoices ?? [];
-  let skillsOptions: { id: string; name: string; source: string }[] = [];
-
-  if (cls?.skillChoices) {
-    skillsRequired = cls.skillChoices.choose;
-    if (Array.isArray(cls.skillChoices.from)) {
-      skillsOptions = cls.skillChoices.from.map((id) => ({ id, name: id, source: "Classe" }));
-    }
-  }
-
-  const skillsPending = Math.max(0, skillsRequired - skillsChosen.length);
-
   // ── Languages / Tools (generic placeholders) ──
-  // The sources (race/background/class/feat) ultimately materialize into `char.proficiencies`.
-  // We detect unresolved placeholders in the current state. This keeps the engine generic
-  // without hardcoding lists that would diverge from the book.
   const languagePlaceholders = getPlaceholders(char.proficiencies?.languages, "language");
   const toolPlaceholders = getPlaceholders(char.proficiencies?.tools, "tool");
+
+  // Count total pending (some placeholders mean multiple choices, e.g. "Três instrumentos musicais à sua escolha")
+  const langPendingCount = languagePlaceholders.reduce((sum, p) => sum + countFromPlaceholder(p), 0);
+  const toolPendingCount = toolPlaceholders.reduce((sum, p) => sum + countFromPlaceholder(p), 0);
 
   // ── Spellcasting (canonical: classId) ──
   let cantripsRequired = 0;
@@ -95,7 +85,6 @@ export function getChoicesRequirements(char: CharacterState): ChoicesRequirement
 
     // Cantrips
     let cantripsLimit = getCantripsLimit(sc.cantripsKnownAtLevel, char.level);
-    // Special cases encoded in class features choices (kept as-is)
     const cfc = char.classFeatureChoices ?? {};
     if (char.class === "clerigo" && cfc["clerigo:ordemDivina"] === "taumaturgo") cantripsLimit += 1;
     if (char.class === "druida" && cfc["druida:ordemPrimal"] === "xama") cantripsLimit += 1;
@@ -106,20 +95,12 @@ export function getChoicesRequirements(char: CharacterState): ChoicesRequirement
 
     // Spells
     const abilityMap: Record<string, AbilityKey> = {
-      Força: "str",
-      Destreza: "dex",
-      Constituição: "con",
-      Inteligência: "int",
-      Sabedoria: "wis",
-      Carisma: "cha",
+      Força: "str", Destreza: "dex", Constituição: "con",
+      Inteligência: "int", Sabedoria: "wis", Carisma: "cha",
     };
     const scKey = abilityMap[sc.ability] ?? null;
     const finalScores = getFinalAbilityScores(
-      char.abilityScores,
-      char.racialBonuses,
-      char.backgroundBonuses,
-      char.asiBonuses,
-      char.featAbilityBonuses
+      char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses, char.featAbilityBonuses
     );
     const scMod = scKey ? calcAbilityMod(finalScores[scKey]) : 0;
 
@@ -129,15 +110,12 @@ export function getChoicesRequirements(char: CharacterState): ChoicesRequirement
       const knownTable = (sc as any).spellsKnownAtLevel as Record<number, number> | undefined;
       if (knownTable) {
         for (let l = char.level; l >= 1; l--) {
-          if (knownTable[l] !== undefined) {
-            spellsRequired = knownTable[l];
-            break;
-          }
+          if (knownTable[l] !== undefined) { spellsRequired = knownTable[l]; break; }
         }
       }
     }
 
-    const maxCircle = Math.min(2, char.level); // start level 1–2 only
+    const maxCircle = Math.min(2, char.level);
     spellsOptions = classSpells
       .filter((s) => s.level >= 1 && s.level <= maxCircle)
       .map((s) => s.id);
@@ -147,28 +125,21 @@ export function getChoicesRequirements(char: CharacterState): ChoicesRequirement
   const spellsPending = Math.max(0, spellsRequired - spellsChosen.length);
 
   const needsStep =
-    skillsPending > 0 ||
     cantripsPending > 0 ||
     spellsPending > 0 ||
-    languagePlaceholders.length > 0 ||
-    toolPlaceholders.length > 0;
+    langPendingCount > 0 ||
+    toolPendingCount > 0;
 
   return {
     needsStep,
-    skills: {
-      requiredCount: skillsRequired,
-      chosenIds: skillsChosen,
-      options: skillsOptions,
-      pendingCount: skillsPending,
-    },
     languages: {
-      requiredCount: languagePlaceholders.length,
-      pendingCount: languagePlaceholders.length,
+      requiredCount: langPendingCount,
+      pendingCount: langPendingCount,
       placeholders: languagePlaceholders,
     },
     tools: {
-      requiredCount: toolPlaceholders.length,
-      pendingCount: toolPlaceholders.length,
+      requiredCount: toolPendingCount,
+      pendingCount: toolPendingCount,
       placeholders: toolPlaceholders,
     },
     cantrips: {
