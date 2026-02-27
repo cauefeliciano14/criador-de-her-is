@@ -1,3 +1,4 @@
+import { itemsById } from "@/data/items";
 import { EXPECTED_BACKGROUND_IDS, EXPECTED_CLASS_IDS, EXPECTED_RACE_IDS } from "@/data/catalogExpectations";
 
 export interface ValidationIssue {
@@ -42,6 +43,31 @@ function validatePlaceholderUsage(dataset: string, payload: any): ValidationIssu
   const text = JSON.stringify(payload);
   if (!PLACEHOLDER_RX.test(text)) return [];
   return [{ severity: "warning", dataset, message: "Encontrado placeholder textual (à sua escolha/pendente/etc.)" }];
+}
+
+
+
+function validateEquipmentChoices(classes: any[]): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  for (const cls of classes) {
+    if (!Array.isArray(cls.equipmentChoices) || cls.equipmentChoices.length < 2) {
+      issues.push({ severity: "error", dataset: "classes", id: cls.id, message: "equipmentChoices incompleto (mínimo A/B)" });
+      continue;
+    }
+    for (const choice of cls.equipmentChoices) {
+      if (!Array.isArray(choice.items)) {
+        issues.push({ severity: "error", dataset: "classes", id: cls.id, message: `choice ${choice.id} sem items[]` });
+        continue;
+      }
+      for (const entry of choice.items) {
+        if (typeof entry === "string") continue;
+        if (!entry?.itemId || !itemsById[entry.itemId]) {
+          issues.push({ severity: "error", dataset: "classes", id: cls.id, message: `itemId inválido em ${choice.id}: ${entry?.itemId}` });
+        }
+      }
+    }
+  }
+  return issues;
 }
 
 function validateCrossRefs(classes: any[], backgrounds: any[], spells: any[], feats: any[]): ValidationIssue[] {
@@ -97,6 +123,7 @@ export function validateAllData(datasets: {
     ...validatePlaceholderUsage("backgrounds", backgrounds),
     ...validatePlaceholderUsage("races", races),
     ...validateCrossRefs(classes, backgrounds, spells, feats),
+    ...validateEquipmentChoices(classes),
   ];
 
   devAuditStatus = {

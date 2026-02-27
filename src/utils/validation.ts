@@ -108,7 +108,7 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
       missing.push({
         id: "class-skills",
         label: `Perícias de classe incompletas (${chosen}/${needed})`,
-        stepId: "choices",
+        stepId: "equipment",
         stepNumber: 5,
         severity: "required",
       });
@@ -172,8 +172,8 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
         missing.push({
           id: `expertise-${check.key}`,
           label: `${check.label}: ${chosen}/${check.count} escolhido(s)`,
-          stepId: useChoicesStep ? "choices" : "sheet",
-          stepNumber: useChoicesStep ? 6 : 6,
+          stepId: "equipment",
+          stepNumber: 5,
           severity: "required",
         });
       }
@@ -235,12 +235,13 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
       choicesReq.cantrips.pendingCount,
       choicesReq.spells.pendingCount,
       choicesReq.raceChoice.pendingCount,
+      choicesReq.fightingStyleFeat.pendingCount,
     ].reduce((a, b) => a + b, 0);
 
     missing.push({
       id: "choices-pending",
       label: `Escolhas obrigatórias pendentes (${pending})`,
-      stepId: "choices",
+      stepId: "equipment",
       stepNumber: 5,
       severity: "required",
     });
@@ -270,7 +271,7 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
       missing.push({
         id: "spell-ability",
         label: "Atributo de conjuração não definido",
-        stepId: "choices",
+        stepId: "equipment",
         stepNumber: 5,
         severity: "required",
       });

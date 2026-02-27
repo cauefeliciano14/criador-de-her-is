@@ -1,7 +1,7 @@
 export interface EquipmentChoice {
   id: string;
   label: string;
-  items: string[];
+  items: Array<string | { itemId: string; qty: number }>;
   gold: number;
 }
 
@@ -170,7 +170,7 @@ export const classes: ClassData[] = [
     },
     skillChoices: { choose: 3, from: ["Acrobacia", "Adestrar Animais", "Arcanismo", "Atletismo", "Atuação", "Enganação", "Furtividade", "História", "Intimidação", "Intuição", "Investigação", "Medicina", "Natureza", "Percepção", "Persuasão", "Prestidigitação", "Religião", "Sobrevivência"] },
     equipmentChoices: [
-      { id: "A", label: "Escolha A", items: ["Rapieira", "Armadura de Couro", "Kit de Explorador", "Instrumento Musical"], gold: 10 },
+      { id: "A", label: "Escolha A", items: ["Rapieira", "Armadura de Couro", "Kit de Explorador", "Instrumento Musical (à sua escolha)"], gold: 10 },
       { id: "B", label: "Escolha B", items: [], gold: 100 },
     ],
     spellcasting: {
@@ -545,8 +545,9 @@ export const classes: ClassData[] = [
     },
     skillChoices: { choose: 2, from: ["Acrobacia", "Adestrar Animais", "Atletismo", "História", "Intimidação", "Intuição", "Percepção", "Sobrevivência"] },
     equipmentChoices: [
-      { id: "A", label: "Escolha A", items: ["Cota de Malha", "Espada Longa", "Escudo", "Kit de Explorador"], gold: 10 },
-      { id: "B", label: "Escolha B", items: [], gold: 175 },
+      { id: "A", label: "Escolha A", items: [{ itemId: "cotaDeMalhaFull", qty: 1 }, { itemId: "espadaLonga", qty: 1 }, { itemId: "escudo", qty: 1 }, { itemId: "kitExplorador", qty: 1 }], gold: 10 },
+      { id: "B", label: "Escolha B", items: [{ itemId: "cotaDeMalha", qty: 1 }, { itemId: "espadaCurta", qty: 1 }, { itemId: "arcoLongo", qty: 1 }, { itemId: "flechas", qty: 20 }, { itemId: "kitAventureiro", qty: 1 }], gold: 10 },
+      { id: "C", label: "Escolha C", items: [], gold: 175 },
     ],
     spellcasting: null,
     subclassLevel: 3,

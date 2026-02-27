@@ -8,6 +8,7 @@ import { spellsByClassId } from "@/data/indexes";
 import type { CharacterState } from "@/state/characterStore";
 import { calcAbilityMod, getFinalAbilityScores, type AbilityKey } from "@/utils/calculations";
 import { slugifyId } from "@/utils/slugifyId";
+import { feats } from "@/data/feats";
 
 export interface ChoiceOption {
   id: string;
@@ -38,6 +39,7 @@ export interface ChoicesRequirements {
   instruments: ChoiceBucket;
   cantrips: ChoiceBucket;
   spells: ChoiceBucket;
+  fightingStyleFeat: ChoiceBucket;
   raceChoice: RaceChoiceBucket;
 }
 
@@ -181,6 +183,14 @@ export function getChoicesRequirements(
     });
 
   const classSkillRequired = currentClass ? currentClass.skillChoices.choose : 0;
+  const isBard = currentClass?.id === "bardo";
+  const bardInstrumentRequired = isBard ? 3 : 0;
+
+  const fightingStyleRequired = (character.class === "guerreiro" && character.level >= 1) || (character.class === "guardiao" && character.level >= 2) ? 1 : 0;
+  const fightingStyleOptions = feats
+    .filter((f) => f.category === "fighting_style")
+    .map((f) => ({ id: f.id, name: f.name }));
+  const selectedFightingStyle = typeof (character.classFeatureChoices?.fightingStyleFeatId) === "string" ? [character.classFeatureChoices.fightingStyleFeatId as string] : [];
   const classSkillOptions = currentClass
     ? currentClass.skillChoices.from
         .map((name) => skills.find((s) => s.name === name))
@@ -199,9 +209,10 @@ export function getChoicesRequirements(
     skills: makeBucket(classSkillRequired, selections.skills, classSkillOptions, currentClass ? [`class:${currentClass.id}`] : []),
     languages: makeBucket(languageRequired, selections.languages, languageOptions, languagePlaceholders.map((_, idx) => `languages:${idx}`)),
     tools: makeBucket(toolsRequired, selections.tools, genericToolOptions, toolPlaceholders.filter((p) => TOOL_RX.test(p)).map((_, idx) => `tools:${idx}`)),
-    instruments: makeBucket(instrumentRequired, selections.instruments, instrumentOptions, toolPlaceholders.filter((p) => INSTRUMENT_RX.test(p)).map((_, idx) => `instruments:${idx}`)),
+    instruments: makeBucket(instrumentRequired + bardInstrumentRequired, selections.instruments, instrumentOptions, toolPlaceholders.filter((p) => INSTRUMENT_RX.test(p)).map((_, idx) => `instruments:${idx}`).concat(isBard ? ["class:bardo"] : [])),
     cantrips: makeBucket(spellData.cantrips, selections.cantrips, cantripOptions, currentClass?.spellcasting ? [`class:${currentClass.id}:spellcasting`] : []),
     spells: makeBucket(spellData.spells, selections.spells, leveledOptions, currentClass?.spellcasting ? [`class:${currentClass.id}:spellcasting`] : []),
+    fightingStyleFeat: makeBucket(fightingStyleRequired, selectedFightingStyle, fightingStyleOptions, fightingStyleRequired ? [`class:${character.class}:fighting_style`] : []),
     raceChoice: {
       ...makeBucket(raceChoiceRequired, selections.raceChoice ? [selections.raceChoice] : [], raceChoiceOptions, currentRace?.raceChoice ? [`race:${currentRace.id}`] : []),
     },

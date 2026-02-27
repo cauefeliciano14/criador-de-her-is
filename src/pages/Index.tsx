@@ -32,7 +32,6 @@ const StepBackground = lazy(() => import("@/components/steps/StepBackground").th
 const StepRace = lazy(() => import("@/components/steps/StepRace").then(m => ({ default: m.StepRace })));
 const StepAbilityMethod = lazy(() => import("@/components/steps/StepAbilityMethod").then(m => ({ default: m.StepAbilityMethod })));
 const StepEquipment = lazy(() => import("@/components/steps/StepEquipment").then(m => ({ default: m.StepEquipment })));
-const StepChoices = lazy(() => import("@/components/steps/StepChoices").then(m => ({ default: m.StepChoices })));
 const StepSheet = lazy(() => import("@/components/steps/StepSheet").then(m => ({ default: m.StepSheet })));
 
 const STEP_COMPONENTS: Record<StepId, React.LazyExoticComponent<React.ComponentType>> = {
@@ -41,7 +40,6 @@ const STEP_COMPONENTS: Record<StepId, React.LazyExoticComponent<React.ComponentT
   race: StepRace,
   abilities: StepAbilityMethod,
   equipment: StepEquipment,
-  choices: StepChoices,
   sheet: StepSheet,
 };
 

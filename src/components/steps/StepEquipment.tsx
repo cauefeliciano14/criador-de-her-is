@@ -4,6 +4,8 @@ import { items, itemsById, type Item, type WeaponProperties, type ArmorPropertie
 import { classes } from "@/data/classes";
 import { backgrounds } from "@/data/backgrounds";
 import { calcArmorClass, buildAttacks, isArmorProficient } from "@/utils/equipment";
+import { getChoicesRequirements } from "@/utils/choices";
+import { featsById } from "@/data/feats";
 import { useEffect, useMemo, useState } from "react";
 import { Search, Plus, Minus, Shield, Swords, AlertTriangle, Package, Coins, Trash2, Check, BookOpen } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -31,6 +33,7 @@ export function StepEquipment() {
   const isSpellcaster = cls?.spellcasting != null;
   const hasEquipChoices = cls && cls.equipmentChoices.length > 0;
   const equipChoicePending = hasEquipChoices && !char.classEquipmentChoice;
+  const requirements = useMemo(() => getChoicesRequirements(char), [char]);
 
   // ── Catalog state ──
   const [search, setSearch] = useState("");
@@ -49,19 +52,23 @@ export function StepEquipment() {
 
     // Build inventory from choice items (best-effort match to items.ts)
     const newInventory: InventoryEntry[] = [];
-    for (const itemName of choice.items) {
-      // Try matching by name
-      const matched = items.find((i) => i.name.toLowerCase() === itemName.toLowerCase());
+    for (const rawItem of choice.items) {
+      const itemId = typeof rawItem === "string" ? null : rawItem.itemId;
+      const qty = typeof rawItem === "string" ? 1 : rawItem.qty;
+      const itemName = typeof rawItem === "string" ? rawItem : (itemsById[rawItem.itemId]?.name ?? rawItem.itemId);
+      if (itemId && itemsById[itemId]) {
+        const existing = newInventory.find((e) => e.itemId === itemId);
+        if (existing) existing.quantity += qty;
+        else newInventory.push({ itemId, quantity: qty, equipped: false, notes: "" });
+        continue;
+      }
+      const matched = items.find((i) => i.name.toLowerCase() === itemName.toLowerCase().replace(" (à sua escolha)", ""));
       if (matched) {
         const existing = newInventory.find((e) => e.itemId === matched.id);
-        if (existing) {
-          existing.quantity += 1;
-        } else {
-          newInventory.push({ itemId: matched.id, quantity: 1, equipped: false, notes: "" });
-        }
-      } else {
-        // Store as "other" unmatched item – use the name as id
-        newInventory.push({ itemId: `custom_${itemName}`, quantity: 1, equipped: false, notes: itemName });
+        if (existing) existing.quantity += qty;
+        else newInventory.push({ itemId: matched.id, quantity: qty, equipped: false, notes: "" });
+      } else if (!/à sua escolha/i.test(itemName)) {
+        newInventory.push({ itemId: `custom_${itemName}`, quantity: qty, equipped: false, notes: itemName });
       }
     }
 
@@ -146,11 +153,42 @@ export function StepEquipment() {
     patchCharacter({ equipped: { ...char.equipped, weapons } });
   }
 
+
+
+  function toggleChoice(bucket: "skills" | "languages" | "tools" | "instruments" | "cantrips" | "spells", id: string, max: number) {
+    const selected = new Set((char.choiceSelections as any)[bucket] ?? []);
+    if (selected.has(id)) selected.delete(id);
+    else if (selected.size < max) selected.add(id);
+    const next = [...selected];
+    patchCharacter({
+      choiceSelections: { ...char.choiceSelections, [bucket]: next },
+      classSkillChoices: bucket === "skills" ? next : char.classSkillChoices,
+      spells: {
+        ...char.spells,
+        cantrips: bucket === "cantrips" ? next : char.spells.cantrips,
+        prepared: bucket === "spells" ? next : char.spells.prepared,
+      },
+    });
+  }
+
+  function selectFightingStyle(featId: string) {
+    patchCharacter({ classFeatureChoices: { ...char.classFeatureChoices, fightingStyleFeatId: featId } });
+  }
+
   // ── Validation ──
   useEffect(() => {
     const missing: string[] = [];
     if (equipChoicePending) {
-      missing.push("Escolha seu equipamento inicial (A ou B)");
+      missing.push("Escolha seu equipamento inicial (A/B/C)");
+    }
+    if (requirements.needsStep) {
+      if (requirements.skills.pendingCount) missing.push(`Perícias pendentes: ${requirements.skills.pendingCount}`);
+      if (requirements.cantrips.pendingCount) missing.push(`Truques pendentes: ${requirements.cantrips.pendingCount}`);
+      if (requirements.spells.pendingCount) missing.push(`Magias pendentes: ${requirements.spells.pendingCount}`);
+      if (requirements.languages.pendingCount) missing.push(`Idiomas pendentes: ${requirements.languages.pendingCount}`);
+      if (requirements.tools.pendingCount) missing.push(`Ferramentas pendentes: ${requirements.tools.pendingCount}`);
+      if (requirements.instruments.pendingCount) missing.push(`Instrumentos pendentes: ${requirements.instruments.pendingCount}`);
+      if (requirements.fightingStyleFeat.pendingCount) missing.push("Talento de classe pendente: Estilo de Luta");
     }
     setMissing("equipment", missing);
     if (missing.length === 0) {
@@ -158,7 +196,7 @@ export function StepEquipment() {
     } else {
       uncompleteStep("equipment");
     }
-  }, [char.classEquipmentChoice, hasEquipChoices]);
+  }, [char.classEquipmentChoice, hasEquipChoices, requirements]);
 
   // ── Filtered catalog items ──
   const filteredItems = useMemo(() => {
@@ -226,9 +264,7 @@ export function StepEquipment() {
                   </div>
                   {choice.items.length > 0 ? (
                     <ul className="text-xs text-muted-foreground space-y-0.5">
-                      {choice.items.map((item, i) => (
-                        <li key={i}>• {item}</li>
-                      ))}
+                      {choice.items.map((item, i) => { const label = typeof item === "string" ? item : `${itemsById[item.itemId]?.name ?? item.itemId} x${item.qty}`; return <li key={i}>• {label}</li>; })}
                     </ul>
                   ) : (
                     <p className="text-xs text-muted-foreground italic">Sem itens específicos</p>
@@ -247,6 +283,47 @@ export function StepEquipment() {
             <div className="flex items-center gap-2 text-xs text-info">
               <AlertTriangle className="h-3.5 w-3.5" />
               Escolha obrigatória antes de avançar.
+            </div>
+          )}
+        </section>
+      )}
+
+
+      {(requirements.skills.requiredCount > 0 || requirements.cantrips.requiredCount > 0 || requirements.spells.requiredCount > 0 || requirements.languages.requiredCount > 0 || requirements.tools.requiredCount > 0 || requirements.instruments.requiredCount > 0 || requirements.fightingStyleFeat.requiredCount > 0) && (
+        <section className="space-y-4">
+          <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">Pendências obrigatórias</h3>
+          {[
+            ["Perícias", "skills"],
+            ["Truques", "cantrips"],
+            ["Magias", "spells"],
+            ["Idiomas", "languages"],
+            ["Ferramentas", "tools"],
+            ["Instrumentos", "instruments"],
+          ].map(([label, key]) => {
+            const bucket = (requirements as any)[key];
+            if (!bucket || bucket.requiredCount <= 0) return null;
+            return <div key={key as string} className="rounded-lg border p-3 space-y-2">
+              <p className="text-sm font-medium">{label} ({bucket.selectedIds.length}/{bucket.requiredCount})</p>
+              <div className="flex flex-wrap gap-2">
+                {bucket.options.map((o: any) => (
+                  <button key={o.id} onClick={() => toggleChoice(key as any, o.id, bucket.requiredCount)} className={`px-2 py-1 text-xs rounded border ${bucket.selectedIds.includes(o.id) ? "bg-primary/10 border-primary" : ""}`}>{o.name}</button>
+                ))}
+              </div>
+            </div>
+          })}
+          {requirements.fightingStyleFeat.requiredCount > 0 && (
+            <div className="rounded-lg border p-3 space-y-2">
+              <p className="text-sm font-medium">Talento de classe: Estilo de Luta</p>
+              <div className="grid gap-2">
+                {requirements.fightingStyleFeat.options.map((o) => {
+                  const feat = featsById[o.id];
+                  const selected = char.classFeatureChoices?.fightingStyleFeatId === o.id;
+                  return <button key={o.id} onClick={() => selectFightingStyle(o.id)} className={`text-left rounded border p-2 ${selected ? "bg-primary/10 border-primary" : ""}`}>
+                    <p className="text-sm font-medium">{o.name}</p>
+                    <p className="text-xs text-muted-foreground">{feat?.description}</p>
+                  </button>;
+                })}
+              </div>
             </div>
           )}
         </section>

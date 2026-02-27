@@ -17,8 +17,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StepReview } from "./StepReview";
-import { StepSkills } from "./StepSkills";
-import { StepSpells } from "./StepSpells";
 import { LevelUpModal } from "@/components/LevelUpModal";
 import { useEffect } from "react";
 
@@ -111,18 +109,12 @@ export function StepSheet() {
         </div>
         <div className="flex gap-1 overflow-x-auto">
           <TabButton active={activeTab === "resumo"} onClick={() => setActiveTab("resumo")} icon={<BookOpen className="h-3.5 w-3.5" />} label="Resumo" />
-          <TabButton active={activeTab === "pericias"} onClick={() => setActiveTab("pericias")} icon={<Star className="h-3.5 w-3.5" />} label="Perícias" />
-          {isSpellcaster && (
-            <TabButton active={activeTab === "magias"} onClick={() => setActiveTab("magias")} icon={<Wand2 className="h-3.5 w-3.5" />} label="Magias" />
-          )}
           <TabButton active={activeTab === "equipamentos"} onClick={() => setActiveTab("equipamentos")} icon={<Shield className="h-3.5 w-3.5" />} label="Equipamentos" />
           <TabButton active={activeTab === "caracteristicas"} onClick={() => setActiveTab("caracteristicas")} icon={<Scroll className="h-3.5 w-3.5" />} label="Características" />
         </div>
       </div>
       <div className="flex-1 overflow-y-auto">
         {activeTab === "resumo" && <StepReview />}
-        {activeTab === "pericias" && <StepSkills />}
-        {activeTab === "magias" && isSpellcaster && <StepSpells />}
         {activeTab === "equipamentos" && <EquipmentSummaryTab />}
         {activeTab === "caracteristicas" && <FeaturesTab />}
       </div>

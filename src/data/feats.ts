@@ -30,6 +30,8 @@ export interface FeatData {
   name: string;
   description: string;
   type: "asi" | "general" | "origin" | "epic";
+  category?: "origin" | "general" | "fighting_style" | "epic_boon";
+  repeatable?: boolean;
   prerequisites: FeatPrerequisite[];
   effects: FeatEffects;
   source?: { book: string; page: number };
@@ -42,6 +44,8 @@ export const feats: FeatData[] = [
     description:
       "Aumente um valor de atributo em 2 ou dois valores de atributos diferentes em 1 cada. Nenhum atributo pode ultrapassar 20 com este aumento.",
     type: "asi",
+    category: "general",
+    repeatable: true,
     prerequisites: [],
     effects: {
       abilityIncrease: {
@@ -57,6 +61,7 @@ export const feats: FeatData[] = [
     description:
       "Você ganha +5 de bônus em Iniciativa. Não pode ser surpreendido enquanto estiver consciente. Outras criaturas não ganham vantagem em jogadas de ataque contra você por estarem ocultas.",
     type: "origin",
+    category: "origin",
     prerequisites: [],
     effects: {
       flags: { initiativeBonus: 5, cantBeSurprised: true },
@@ -69,6 +74,7 @@ export const feats: FeatData[] = [
     description:
       "Aumente um valor de Força ou Destreza em 1 (máximo 20). Levantar-se de estar caído usa apenas 1,5m de deslocamento. Escalar não custa deslocamento extra. Saltos com corrida exigem apenas 1,5m de impulso.",
     type: "origin",
+    category: "origin",
     prerequisites: [],
     effects: {
       abilityIncrease: {
@@ -86,6 +92,7 @@ export const feats: FeatData[] = [
     description:
       "Aumente seu Carisma em 1 (máximo 20). Vantagem em testes de Enganação e Atuação ao se passar por outra pessoa. Pode imitar a fala ou sons de outra criatura que tenha ouvido por pelo menos 1 minuto.",
     type: "origin",
+    category: "origin",
     prerequisites: [],
     effects: {
       abilityIncrease: {
@@ -102,6 +109,7 @@ export const feats: FeatData[] = [
     description:
       "Ao obter 1 ou 2 em um dado de dano com uma arma corpo a corpo de duas mãos ou versátil, pode rolar novamente e usar o novo resultado.",
     type: "origin",
+    category: "origin",
     prerequisites: [],
     effects: {
       flags: { gwfReroll: true },
@@ -114,6 +122,7 @@ export const feats: FeatData[] = [
     description:
       "Aumente sua Constituição em 1 (máximo 20). Vantagem em testes de resistência de Constituição para manter concentração em magias.",
     type: "general",
+    category: "general",
     prerequisites: [],
     effects: {
       abilityIncrease: {
@@ -131,6 +140,7 @@ export const feats: FeatData[] = [
     description:
       "Aumente sua Constituição em 1 (máximo 20). Quando rolar dados de vida para recuperar PV durante descanso curto, o mínimo que pode recuperar é igual ao dobro do seu mod. Constituição (mínimo 2).",
     type: "general",
+    category: "general",
     prerequisites: [],
     effects: {
       abilityIncrease: {
@@ -148,6 +158,7 @@ export const feats: FeatData[] = [
     description:
       "Aumente sua Destreza em 1 (máximo 20). Quando uma criatura que você pode ver ataca você, pode usar sua reação para impor desvantagem na jogada de ataque.",
     type: "general",
+    category: "general",
     prerequisites: [],
     effects: {
       abilityIncrease: {
@@ -164,6 +175,7 @@ export const feats: FeatData[] = [
     description:
       "Aumente seu Carisma em 1 (máximo 20). Quando terminar um descanso longo, pode escolher até 6 criaturas amigas num raio de 9m. Cada uma ganha PV temporários iguais ao seu nível + mod. Carisma.",
     type: "origin",
+    category: "origin",
     prerequisites: [],
     effects: {
       abilityIncrease: {
@@ -180,6 +192,7 @@ export const feats: FeatData[] = [
     description:
       "Escolha uma classe: Bardo, Clérigo, Druida, Feiticeiro, Bruxo ou Mago. Aprenda 2 truques e 1 magia de 1º nível dessa lista. Pode conjurar essa magia 1/dia sem gastar espaço.",
     type: "origin",
+    category: "origin",
     prerequisites: [],
     effects: {
       spellsGranted: [],
@@ -193,6 +206,7 @@ export const feats: FeatData[] = [
     description:
       "Aumente Inteligência ou Sabedoria em 1 (máximo 20). +5 em Percepção passiva e Investigação passiva. Pode ler lábios se puder ver a boca da criatura e compreender o idioma.",
     type: "origin",
+    category: "origin",
     prerequisites: [],
     effects: {
       abilityIncrease: {
@@ -210,6 +224,7 @@ export const feats: FeatData[] = [
     description:
       "Quando uma criatura ao seu alcance ataca um alvo que não seja você, pode usar sua reação para fazer um ataque corpo a corpo contra ela. Criaturas provocam ataques de oportunidade mesmo se usarem Desengajar. Quando acerta um ataque de oportunidade, o deslocamento do alvo cai para 0.",
     type: "origin",
+    category: "origin",
     prerequisites: [],
     effects: {
       flags: { sentinelReaction: true },
@@ -222,6 +237,7 @@ export const feats: FeatData[] = [
     description:
       "Você tem 3 pontos de sorte. Pode gastar um para rolar um d20 adicional em ataque, teste de habilidade ou resistência (usa o resultado que preferir). Recupera pontos após descanso longo.",
     type: "origin",
+    category: "origin",
     prerequisites: [],
     effects: {
       flags: { luckPoints: 3 },
@@ -234,6 +250,7 @@ export const feats: FeatData[] = [
     description:
       "Você pode usar um kit de curandeiro para tratar ferimentos. Ao estabilizar uma criatura ou usar o kit, ela recupera 1d6+4+seu nível PV. Como ação, pode gastar um uso do kit para restaurar 2d6+mod. Sabedoria PV.",
     type: "origin",
+    category: "origin",
     prerequisites: [],
     effects: {
       flags: { healerKit: true },
@@ -246,6 +263,7 @@ export const feats: FeatData[] = [
     description:
       "Vantagem em testes de resistência de Constituição para manter concentração. Pode realizar componentes somáticos mesmo com armas ou escudo nas mãos. Aprenda 1 truque de mago.",
     type: "general",
+    category: "general",
     prerequisites: [{ type: "spellcasting", required: true }],
     effects: {
       flags: { warCaster: true, concentrationAdvantage: true },
@@ -258,6 +276,7 @@ export const feats: FeatData[] = [
     description:
       "Enquanto empunha um escudo, se uma criatura falhar um ataque corpo a corpo contra você, pode usar sua reação para empurrá-la 1,5m. +2 de bônus em testes de resistência de Destreza se estiver usando um escudo.",
     type: "general",
+    category: "general",
     prerequisites: [],
     effects: {
       flags: { shieldMaster: true },
@@ -270,6 +289,7 @@ export const feats: FeatData[] = [
     description:
       "Aumente um valor de atributo em 1 (máximo 20). Você ganha proficiência em testes de resistência desse atributo.",
     type: "general",
+    category: "general",
     prerequisites: [],
     effects: {
       abilityIncrease: {
@@ -281,6 +301,47 @@ export const feats: FeatData[] = [
     },
     source: { book: "PHB 2024", page: 0 },
   },
+  {
+    id: "estilo-defesa",
+    name: "Estilo de Luta: Defesa",
+    description: "Enquanto estiver usando armadura, você recebe +1 na CA.",
+    type: "general",
+    category: "fighting_style",
+    prerequisites: [],
+    effects: { flags: { fightingStyleDefense: true } },
+    source: { book: "PHB 2024", page: 0 },
+  },
+  {
+    id: "estilo-duelismo",
+    name: "Estilo de Luta: Duelismo",
+    description: "Quando empunha arma corpo a corpo em uma mão e nenhuma outra arma, +2 no dano.",
+    type: "general",
+    category: "fighting_style",
+    prerequisites: [],
+    effects: { flags: { fightingStyleDueling: true } },
+    source: { book: "PHB 2024", page: 0 },
+  },
+  {
+    id: "estilo-combate-armas-grandes",
+    name: "Estilo de Luta: Combate com Armas Grandes",
+    description: "Com arma de duas mãos/versátil, rerrola 1 e 2 no dano.",
+    type: "general",
+    category: "fighting_style",
+    prerequisites: [],
+    effects: { flags: { fightingStyleGreatWeapon: true } },
+    source: { book: "PHB 2024", page: 0 },
+  },
+  {
+    id: "combatente-druidico",
+    name: "Combatente Druídico",
+    description: "Você aprende truques druídicos como estilo de luta para Guardião.",
+    type: "general",
+    category: "fighting_style",
+    prerequisites: [{ type: "class", ids: ["guardiao"] }],
+    effects: { flags: { fightingStyleDruidicWarrior: true } },
+    source: { book: "PHB 2024", page: 0 },
+  },
+
 ];
 
 export const featsById: Record<string, FeatData> = {};
