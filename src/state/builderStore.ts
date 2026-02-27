@@ -31,6 +31,7 @@ export const STEPS: StepDef[] = BASE_STEPS;
 
 interface BuilderState {
   currentStep: StepId;
+  visibleSteps: StepDef[];
   completedSteps: StepId[];
   requiredMissing: Record<string, string[]>;
   choicesRequirements: ChoicesRequirements | null;
@@ -48,6 +49,7 @@ interface BuilderState {
 
 const DEFAULT_BUILDER = {
   currentStep: "class" as StepId,
+  visibleSteps: STEPS,
   completedSteps: [] as StepId[],
   requiredMissing: {} as Record<string, string[]>,
   choicesRequirements: null as ChoicesRequirements | null,
@@ -87,7 +89,7 @@ export const useBuilderStore = create<BuilderState>()(
           requiredMissing: { ...s.requiredMissing, [step]: items },
         })),
       resetBuilder: () => set({ ...DEFAULT_BUILDER }),
-      getVisibleSteps: () => STEPS,
+      getVisibleSteps: () => get().visibleSteps,
       updateChoicesRequirements: () => {
         const character = useCharacterStore.getState();
         const requirements = getChoicesRequirements(character);
