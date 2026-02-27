@@ -41,8 +41,8 @@ export function SummaryPanel() {
   const [activeTab, setActiveTab] = useState("stats");
 
   return (
-    <aside className="w-72 shrink-0 border-l flex flex-col overflow-hidden">
-      {/* Identity header (read-only mirror, edição principal no topo) */}
+    <aside className="w-full xl:w-72 shrink-0 border-l flex flex-col overflow-hidden">
+      {/* Identity header */}
       <div className="border-b bg-card p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
