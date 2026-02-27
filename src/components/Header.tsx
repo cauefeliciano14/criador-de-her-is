@@ -11,6 +11,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { useCharacterStore } from "@/state/characterStore";
 import { useBuilderStore } from "@/state/builderStore";
 
@@ -41,19 +42,23 @@ export function Header() {
     : "";
 
   return (
-    <header className="sticky top-0 z-50 flex h-14 items-center justify-between border-b bg-card px-6">
-      <h1 className="text-lg font-bold tracking-wide">⚔️ D&D 2024 Character Builder (PT-BR)</h1>
-      <div className="flex items-center gap-3">
-        <div className="text-right">
-          {savedAtLabel && <p className="text-xs text-muted-foreground">{savedAtLabel}</p>}
-          {persistError && <p className="text-xs text-destructive">{persistError}</p>}
-        </div>
+    <header className="sticky top-0 z-50 flex h-auto min-h-14 items-center justify-between border-b bg-card px-4 py-2 md:px-6">
+      <h1 className="text-sm font-bold tracking-wide md:text-lg">
+        <span className="sm:hidden">⚔️ D&D 2024 Builder</span>
+        <span className="hidden sm:inline">⚔️ D&D 2024 Character Builder (PT-BR)</span>
+      </h1>
+      <div className="flex items-center gap-2">
         <AlertDialog onOpenChange={handleDialogOpenChange}>
           <AlertDialogTrigger asChild>
-            <button className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="min-h-[40px] gap-1.5 px-2 text-muted-foreground hover:text-foreground sm:px-3"
+            >
               <RotateCcw className="h-4 w-4" />
-              Reiniciar
-            </button>
+              <span className="sm:hidden">Reset</span>
+              <span className="hidden sm:inline">Reiniciar</span>
+            </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>

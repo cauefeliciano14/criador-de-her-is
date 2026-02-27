@@ -38,10 +38,10 @@ export function IdentityHeader() {
   };
 
   return (
-    <div id="identity-header-panel" className="border-b bg-card px-6 py-4">
-      <div className="max-w-md">
+    <div id="identity-header-panel" className="border-b bg-card px-4 py-4 md:px-6">
+      <div className="max-w-none sm:max-w-md">
         <h3 className="text-sm font-semibold mb-3">Identidade do Personagem</h3>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
           <div>
             <Label htmlFor="character-name" className="text-xs">Nome</Label>
             <Input
