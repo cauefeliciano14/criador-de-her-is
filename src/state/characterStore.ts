@@ -5,6 +5,7 @@ import { recalcAll, type SkillMod, type SaveMod, type RulesWarning } from "@/rul
 import type { InventoryEntry, EquippedState, AttackEntry } from "@/data/items";
 import { perfTime } from "@/utils/perf";
 import { getChoicesRequirements } from "@/utils/choices";
+import { toast } from "@/hooks/use-toast";
 
 // ── Types ──
 
@@ -96,6 +97,8 @@ export interface ChoiceSelectionsState {
 }
 
 export interface CharacterState {
+  lastSavedAt: string | null;
+  persistError: string | null;
   name: string;
   level: number;
   race: string | null;
@@ -150,6 +153,8 @@ export interface CharacterState {
 }
 
 const DEFAULT_CHARACTER: CharacterState = {
+  lastSavedAt: null,
+  persistError: null,
   name: "", level: 1, race: null, subrace: null, class: null, subclass: null, background: null,
   abilityGeneration: { ...DEFAULT_ABILITY_GEN },
   abilityScores: { ...DEFAULT_SCORES },
@@ -187,10 +192,24 @@ const DEFAULT_CHARACTER: CharacterState = {
 function createThrottledStorage(key: string, throttleMs = 1000) {
   let pendingWrite: ReturnType<typeof setTimeout> | null = null;
   let latestValue: string | null = null;
+  let hasPersistedSnapshot = false;
+
+  const setPersistError = (message: string | null) => {
+    useCharacterStore.setState({ persistError: message });
+  };
+
+  const recordSaveSuccess = () => {
+    useCharacterStore.setState({ persistError: null });
+  };
 
   const flushNow = () => {
     if (latestValue !== null) {
-      try { localStorage.setItem(key, latestValue); } catch { /* quota exceeded */ }
+      try {
+        localStorage.setItem(key, latestValue);
+        recordSaveSuccess();
+      } catch {
+        setPersistError("Não foi possível salvar automaticamente (espaço do navegador esgotado). Libere armazenamento e tente novamente.");
+      }
       latestValue = null;
     }
     if (pendingWrite) { clearTimeout(pendingWrite); pendingWrite = null; }
@@ -199,6 +218,7 @@ function createThrottledStorage(key: string, throttleMs = 1000) {
   return {
     getItem: (name: string): StorageValue<CharacterState & CharacterActions> | null => {
       const raw = localStorage.getItem(name);
+      hasPersistedSnapshot = Boolean(raw);
       return raw ? JSON.parse(raw) : null;
     },
     setItem: (name: string, value: StorageValue<CharacterState & CharacterActions>) => {
@@ -213,6 +233,7 @@ function createThrottledStorage(key: string, throttleMs = 1000) {
     },
     /** Force immediate write (e.g. before unload) */
     flush: flushNow,
+    hasPersistedSnapshot: () => hasPersistedSnapshot,
   };
 }
 
@@ -263,19 +284,30 @@ interface CharacterActions {
   resetAbilities: () => void;
 }
 
+function markSavedMeta(): Pick<CharacterState, "lastSavedAt" | "persistError"> {
+  return {
+    lastSavedAt: new Date().toISOString(),
+    persistError: null,
+  };
+}
+
 export const useCharacterStore = create<CharacterState & CharacterActions>()(
   persist(
     (set, get) => ({
       ...DEFAULT_CHARACTER,
       setField: (key, value) => {
+        if (Object.is(get()[key], value)) return;
         const updated = sanitizeChoiceSelections({ ...get(), [key]: value } as CharacterState);
         const derived = instrumentedRecalc(updated);
-        set({ ...updated, ...derived } as Partial<CharacterState & CharacterActions>);
+        set({ ...updated, ...derived, ...markSavedMeta() } as Partial<CharacterState & CharacterActions>);
       },
       patchCharacter: (partial) => {
+        const current = get();
+        const hasChanges = Object.entries(partial).some(([key, value]) => !Object.is((current as any)[key], value));
+        if (!hasChanges) return;
         const updated = sanitizeChoiceSelections({ ...get(), ...partial } as CharacterState);
         const derived = instrumentedRecalc(updated);
-        set({ ...updated, ...derived } as Partial<CharacterState & CharacterActions>);
+        set({ ...updated, ...derived, ...markSavedMeta() } as Partial<CharacterState & CharacterActions>);
       },
       recalc: () => {
         const derived = instrumentedRecalc(sanitizeChoiceSelections(get() as CharacterState));
@@ -289,6 +321,7 @@ export const useCharacterStore = create<CharacterState & CharacterActions>()(
           abilityGeneration: { ...DEFAULT_ABILITY_GEN },
           abilityScores: { ...DEFAULT_SCORES },
           ...derived,
+          ...markSavedMeta(),
         } as Partial<CharacterState & CharacterActions>);
       },
     }),
@@ -327,6 +360,21 @@ export const useCharacterStore = create<CharacterState & CharacterActions>()(
         }
       },
       storage: throttledStorage,
+      onRehydrateStorage: () => (state, error) => {
+        if (error) {
+          useCharacterStore.setState({
+            persistError: "Falha ao restaurar dados salvos. Verifique o armazenamento do navegador.",
+          });
+          return;
+        }
+
+        if (state && throttledStorage.hasPersistedSnapshot()) {
+          toast({
+            title: "Sessão restaurada",
+            description: "Continuando de onde você parou.",
+          });
+        }
+      },
     }
   )
 );
