@@ -274,11 +274,11 @@ export function StepReview() {
               const total = mod + (proficient ? char.proficiencyBonus : 0);
               return (
                 <div key={a} className={`rounded-lg border p-2 text-center ${proficient ? "border-primary/50 bg-primary/5" : "bg-secondary/30"}`}>
-                  <p className="text-[10px] uppercase text-muted-foreground">{ABILITY_SHORT[a]}</p>
+                  <p className="text-[11px] uppercase font-semibold text-muted-foreground">{ABILITY_SHORT[a]}</p>
                   <p className={`font-bold ${proficient ? "text-primary" : ""}`}>
                     {total >= 0 ? "+" : ""}{total}
                   </p>
-                  {proficient && <p className="text-[9px] text-primary">Prof.</p>}
+                  {proficient && <p className="text-[11px] font-medium text-primary">Prof.</p>}
                 </div>
               );
             })}
@@ -406,7 +406,7 @@ export function StepReview() {
                   <div key={`${af.featId}-${i}`} className="rounded-lg border p-3">
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-medium text-sm">{feat?.name ?? af.featId}</span>
-                      <span className="text-[10px] text-muted-foreground bg-secondary rounded-full px-2 py-0.5">
+                      <span className="text-[11px] font-medium text-muted-foreground bg-secondary rounded-full px-2 py-0.5">
                         {sourceName}
                       </span>
                     </div>
@@ -444,7 +444,7 @@ export function StepReview() {
                 <div className="flex gap-2 flex-wrap">
                   {char.spells.slots.map((count, i) => count > 0 && (
                     <div key={i} className="rounded-lg border bg-secondary/30 px-3 py-1.5 text-center">
-                      <p className="text-[10px] text-muted-foreground">{i + 1}º Círculo</p>
+                      <p className="text-[11px] text-muted-foreground">{i + 1}º Círculo</p>
                       <p className="font-bold">{count}</p>
                     </div>
                   ))}
@@ -599,7 +599,7 @@ function SectionTitle({ icon, title }: { icon: React.ReactNode; title: string })
 function StatBox({ label, value, small }: { label: string; value: string; small?: boolean }) {
   return (
     <div className="rounded-lg border bg-secondary/30 p-3 text-center">
-      <p className="text-[10px] uppercase text-muted-foreground">{label}</p>
+      <p className="text-[11px] uppercase font-semibold text-muted-foreground">{label}</p>
       <p className={`font-bold ${small ? "text-sm" : "text-xl"}`}>{value}</p>
     </div>
   );

@@ -83,7 +83,7 @@ export function SidebarSteps() {
                   {step.num}. {step.label}
                 </span>
                 {summary && (
-                  <span className={`block text-[10px] truncate mt-0.5 ${
+                  <span className={`mt-0.5 block truncate text-[11px] font-medium ${
                     isDone ? "text-success/70" : "text-muted-foreground"
                   }`}>
                     {summary}
@@ -100,7 +100,7 @@ export function SidebarSteps() {
                 <TooltipTrigger asChild>{button}</TooltipTrigger>
                 <TooltipContent side="right" className="max-w-[200px]">
                   <p className="font-semibold text-xs mb-1">Pendências:</p>
-                  <ul className="text-[10px] space-y-0.5">
+                  <ul className="space-y-1 text-[11px] leading-snug text-muted-foreground">
                     {missing.slice(0, 3).map((m) => (
                       <li key={m}>• {m}</li>
                     ))}
