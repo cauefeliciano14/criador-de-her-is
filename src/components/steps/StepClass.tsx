@@ -177,6 +177,7 @@ export function StepClass() {
       subclass: null,
       classSkillChoices: [],
       classEquipmentChoice: null,
+      backgroundEquipmentChoice: null,
       hitDie: cls.hitDie,
       savingThrows: cls.savingThrows,
       proficiencies: {

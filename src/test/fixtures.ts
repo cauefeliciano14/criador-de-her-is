@@ -26,7 +26,7 @@ function makeCharacter(overrides: Partial<CharacterState> = {}): CharacterState 
     asiBonuses: { ...ZERO_BONUSES },
     abilityMods: { ...ZERO_MODS },
     proficiencyBonus: 2,
-    savingThrows: [], skills: [], classSkillChoices: [], classEquipmentChoice: null,
+    savingThrows: [], skills: [], classSkillChoices: [], classEquipmentChoice: null, backgroundEquipmentChoice: null,
     proficiencies: { armor: [], weapons: [], tools: [], languages: [] },
     hitDie: 8, hitPoints: { max: 8, current: 8 }, armorClass: 10, speed: 9,
     features: [],
@@ -74,7 +74,7 @@ export const FIGHTER_HUMAN_L1 = makeCharacter({
   },
   classSkillChoices: ["Atletismo", "Intimidação"],
   skills: ["Atletismo", "Intimidação"],
-  classEquipmentChoice: "A",
+  classEquipmentChoice: "A", backgroundEquipmentChoice: null,
   equipped: { armor: "cotaDeMalhaFull", shield: null, weapons: ["espadaLonga"] },
   inventory: [
     { itemId: "cotaDeMalhaFull", quantity: 1, equipped: true, notes: "" },
@@ -117,7 +117,7 @@ export const WIZARD_ELF_L1 = makeCharacter({
   },
   classSkillChoices: ["Arcanismo", "Investigação"],
   skills: ["Arcanismo", "Investigação"],
-  classEquipmentChoice: "A",
+  classEquipmentChoice: "A", backgroundEquipmentChoice: null,
   speed: 9,
 });
 
@@ -155,7 +155,7 @@ export const WIZARD_ELF_L2 = makeCharacter({
   },
   classSkillChoices: ["Arcanismo", "Investigação"],
   skills: ["Arcanismo", "Investigação"],
-  classEquipmentChoice: "A",
+  classEquipmentChoice: "A", backgroundEquipmentChoice: null,
   speed: 9,
 });
 
@@ -189,7 +189,7 @@ export const BARBARIAN_HUMAN_L1 = makeCharacter({
   ],
   classSkillChoices: ["Atletismo", "Intimidação"],
   skills: ["Atletismo", "Intimidação"],
-  classEquipmentChoice: "A",
+  classEquipmentChoice: "A", backgroundEquipmentChoice: null,
   speed: 9,
 });
 

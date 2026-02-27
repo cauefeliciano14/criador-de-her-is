@@ -40,11 +40,13 @@ export function StepEquipment() {
   const setMissing = useBuilderStore((s) => s.setMissing);
 
   const cls = classes.find((c) => c.id === char.class);
+  const selectedBg = backgrounds.find((b) => b.id === char.background);
   const isSpellcaster = cls?.spellcasting != null;
   const hasEquipChoices = cls && cls.equipmentChoices.length > 0;
+  const bgHasEquipChoices = (selectedBg?.equipmentChoices?.length ?? 0) > 0;
   const equipChoicePending = hasEquipChoices && !char.classEquipmentChoice;
-  const datasetsVersion = `${classes.length}:${backgrounds.length}`;
-  const requirements = useMemo(() => getChoicesRequirements(char), [char.class, char.race, char.background, char.level, char.choiceSelections, datasetsVersion]);
+  const bgEquipChoicePending = bgHasEquipChoices && !char.backgroundEquipmentChoice;
+  const requirements = useMemo(() => getChoicesRequirements(char), [char]);
   const pendingChoicesCount = Object.values(requirements.buckets).reduce((sum, bucket) => sum + bucket.pendingCount, 0);
 
   // ── Catalog state ──
@@ -53,52 +55,61 @@ export function StepEquipment() {
   const CATALOG_PAGE = 30;
   const [catalogVisible, setCatalogVisible] = useState(CATALOG_PAGE);
 
+  function addItemsToInventory(inventory: InventoryEntry[], itemNames: string[]) {
+    for (const itemName of itemNames) {
+      const matched = items.find((i) => i.name.toLowerCase() === itemName.toLowerCase());
+      const id = matched?.id ?? `custom_${itemName}`;
+      const existing = inventory.find((e) => e.itemId === id);
+      if (existing) {
+        existing.quantity += 1;
+      } else {
+        inventory.push({ itemId: id, quantity: 1, equipped: false, notes: matched ? "" : itemName });
+      }
+    }
+  }
+
   // ── Select initial equipment A/B ──
   function selectEquipmentChoice(choiceId: string) {
     if (!cls) return;
     const choice = cls.equipmentChoices.find((c) => c.id === choiceId);
     if (!choice) return;
 
-    // Find background
-    const bg = backgrounds.find((b) => b.id === char.background);
+    const bgChoice = selectedBg?.equipmentChoices?.find((c) => c.id === char.backgroundEquipmentChoice);
 
-    // Build inventory from choice items (best-effort match to items.ts)
     const newInventory: InventoryEntry[] = [];
-    for (const itemName of choice.items) {
-      // Try matching by name
-      const matched = items.find((i) => i.name.toLowerCase() === itemName.toLowerCase());
-      if (matched) {
-        const existing = newInventory.find((e) => e.itemId === matched.id);
-        if (existing) {
-          existing.quantity += 1;
-        } else {
-          newInventory.push({ itemId: matched.id, quantity: 1, equipped: false, notes: "" });
-        }
-      } else {
-        // Store as "other" unmatched item – use the name as id
-        newInventory.push({ itemId: `custom_${itemName}`, quantity: 1, equipped: false, notes: itemName });
-      }
-    }
+    addItemsToInventory(newInventory, choice.items);
 
-    // Add background equipment items if present
-    if (bg?.equipment?.items) {
-      for (const itemName of bg.equipment.items) {
-        const matched = items.find((i) => i.name.toLowerCase() === itemName.toLowerCase());
-        const id = matched?.id ?? `custom_${itemName}`;
-        const existing = newInventory.find((e) => e.itemId === id);
-        if (existing) {
-          existing.quantity += 1;
-        } else {
-          newInventory.push({ itemId: id, quantity: 1, equipped: false, notes: matched ? "" : itemName });
-        }
-      }
+    if (bgChoice) {
+      addItemsToInventory(newInventory, bgChoice.items);
+    } else if (selectedBg?.equipment?.items) {
+      addItemsToInventory(newInventory, selectedBg.equipment.items);
     }
 
     patchCharacter({
       classEquipmentChoice: choiceId,
       inventory: newInventory,
       equipped: { armor: null, shield: null, weapons: [] },
-      gold: { gp: choice.gold + (bg?.equipment?.gold ?? 0) },
+      gold: { gp: choice.gold + (bgChoice?.gold ?? selectedBg?.equipment?.gold ?? 0) },
+    });
+  }
+
+  function selectBackgroundEquipmentChoice(choiceId: string) {
+    const bgChoice = selectedBg?.equipmentChoices?.find((c) => c.id === choiceId);
+    if (!bgChoice) return;
+
+    const classChoice = cls?.equipmentChoices.find((c) => c.id === char.classEquipmentChoice);
+    const newInventory: InventoryEntry[] = [];
+
+    if (classChoice) {
+      addItemsToInventory(newInventory, classChoice.items);
+    }
+    addItemsToInventory(newInventory, bgChoice.items);
+
+    patchCharacter({
+      backgroundEquipmentChoice: choiceId,
+      inventory: newInventory,
+      equipped: { armor: null, shield: null, weapons: [] },
+      gold: { gp: (classChoice?.gold ?? 0) + bgChoice.gold },
     });
   }
 
@@ -167,6 +178,9 @@ export function StepEquipment() {
     if (equipChoicePending) {
       missing.push("Escolha seu equipamento inicial");
     }
+    if (bgEquipChoicePending) {
+      missing.push("Escolha seu equipamento inicial da origem");
+    }
     if (pendingChoicesCount > 0) {
       missing.push(`Resolva escolhas pendentes (${pendingChoicesCount})`);
     }
@@ -176,7 +190,7 @@ export function StepEquipment() {
     } else {
       uncompleteStep("equipment");
     }
-  }, [char.classEquipmentChoice, hasEquipChoices, pendingChoicesCount]);
+  }, [char.classEquipmentChoice, char.backgroundEquipmentChoice, hasEquipChoices, bgHasEquipChoices, pendingChoicesCount]);
 
   // ── Filtered catalog items ──
   const filteredItems = useMemo(() => {
@@ -270,6 +284,56 @@ export function StepEquipment() {
         </section>
       )}
 
+      {selectedBg?.equipmentChoices && selectedBg.equipmentChoices.length > 0 && (
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+            <Package className="h-4 w-4" />
+            Equipamento Inicial da Origem
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {selectedBg.equipmentChoices.map((choice) => {
+              const selected = char.backgroundEquipmentChoice === choice.id;
+              return (
+                <button
+                  key={choice.id}
+                  onClick={() => selectBackgroundEquipmentChoice(choice.id)}
+                  className={`rounded-lg border p-4 text-left transition-all ${
+                    selected
+                      ? "border-primary bg-primary/10 ring-1 ring-primary"
+                      : "border-border bg-card hover:border-muted-foreground/40"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-semibold text-sm">{choice.label}</span>
+                    {selected && <Check className="h-4 w-4 text-primary" />}
+                  </div>
+                  {choice.items.length > 0 ? (
+                    <ul className="text-xs text-muted-foreground space-y-0.5">
+                      {choice.items.map((item, i) => (
+                        <li key={i}>• {item}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-xs text-muted-foreground italic">Sem itens específicos</p>
+                  )}
+                  {choice.gold > 0 && (
+                    <div className="mt-2 flex items-center gap-1 text-xs font-medium text-warning">
+                      <Coins className="h-3 w-3" />
+                      {choice.gold} PO
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {bgEquipChoicePending && (
+            <div className="flex items-center gap-2 text-xs text-info">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Escolha obrigatória antes de avançar.
+            </div>
+          )}
+        </section>
+      )}
 
       {pendingChoicesCount > 0 && (
         <section className="space-y-2 rounded-lg border bg-card p-3">
