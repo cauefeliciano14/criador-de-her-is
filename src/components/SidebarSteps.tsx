@@ -37,7 +37,7 @@ export function SidebarSteps() {
   };
 
   return (
-    <aside className="w-56 shrink-0 border-r bg-sidebar p-4 overflow-y-auto">
+    <aside className="w-full md:w-56 shrink-0 border-r md:border-r bg-sidebar p-4 overflow-y-auto">
       <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
         Etapas
       </p>

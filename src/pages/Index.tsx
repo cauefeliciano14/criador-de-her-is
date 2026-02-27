@@ -7,13 +7,20 @@ import { CatalogGate } from "@/components/CatalogGate";
 import { StepHeader } from "@/components/StepHeader";
 import { useEnterToNextStep } from "@/hooks/useEnterToNextStep";
 import { useBuilderStore, type StepId } from "@/state/builderStore";
-import { useCharacterStore } from "@/state/characterStore";
 import { classes } from "@/data/classes";
 import { backgrounds } from "@/data/backgrounds";
 import { races } from "@/data/races";
 import { validateCatalog } from "@/utils/validateCatalog";
 import { getDevAuditStatus } from "@/utils/validateData";
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ListChecks, Loader2, PanelRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 // ── Catalog validation (computed once at module load) ──
 const catalogResult = validateCatalog({
@@ -58,7 +65,6 @@ function BuilderContent() {
   const completedSteps = useBuilderStore((s) => s.completedSteps);
   const requiredMissing = useBuilderStore((s) => s.requiredMissing);
   const nextStep = useBuilderStore((s) => s.nextStep);
-  const prevStep = useBuilderStore((s) => s.prevStep);
   const goToStep = useBuilderStore((s) => s.goToStep);
   const getVisibleSteps = useBuilderStore((s) => s.getVisibleSteps);
 
@@ -77,7 +83,6 @@ function BuilderContent() {
   }, [currentStep, validStep, goToStep]);
 
   const currentIdx = visibleSteps.findIndex((s) => s.id === validStep);
-  const isFirst = currentIdx <= 0;
   const isLast = currentIdx >= visibleSteps.length - 1;
   const currentMissing = requiredMissing[validStep] ?? [];
   const isCurrentComplete = completedSteps.includes(validStep);
@@ -115,9 +120,46 @@ function BuilderContent() {
       )}
       <Header />
       <IdentityHeader />
-      <div className="flex flex-1 overflow-hidden">
-        <SidebarSteps />
-        <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 overflow-hidden md:flex-row flex-col">
+        <aside className="hidden md:block">
+          <SidebarSteps />
+        </aside>
+
+        <div className="flex flex-1 flex-col overflow-hidden min-w-0">
+          <div className="border-b bg-background px-4 py-2 md:hidden">
+            <div className="flex items-center justify-between gap-2">
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <ListChecks className="h-4 w-4" />
+                    Etapas
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-full p-0 sm:max-w-sm">
+                  <SheetHeader className="border-b px-4 py-3 text-left">
+                    <SheetTitle className="text-base">Etapas</SheetTitle>
+                  </SheetHeader>
+                  <SidebarSteps />
+                </SheetContent>
+              </Sheet>
+
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <PanelRight className="h-4 w-4" />
+                    Resumo
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-full p-0 sm:max-w-md">
+                  <SheetHeader className="border-b px-4 py-3 text-left">
+                    <SheetTitle className="text-base">Resumo</SheetTitle>
+                  </SheetHeader>
+                  <SummaryPanel />
+                </SheetContent>
+              </Sheet>
+            </div>
+          </div>
+
           <div className="flex-1 overflow-y-auto" data-step-scroll="true">
             <StepHeader stepId={validStep} canNext={canNext} currentMissing={currentMissing} />
             <Suspense fallback={<StepFallback />}>
@@ -125,7 +167,10 @@ function BuilderContent() {
             </Suspense>
           </div>
         </div>
-        <SummaryPanel />
+
+        <aside className="hidden md:block">
+          <SummaryPanel />
+        </aside>
       </div>
     </div>
   );
