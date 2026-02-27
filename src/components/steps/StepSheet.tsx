@@ -33,6 +33,7 @@ export function StepSheet() {
   const [showLevelUp, setShowLevelUp] = useState(false);
 
   const canLevelUp = cls && char.level < 2;
+  const sheetStep = builder.getVisibleSteps().find((step) => step.id === "sheet");
 
   // Validation drives step completion for "sheet"
   const validation = useMemo(
@@ -98,7 +99,7 @@ export function StepSheet() {
 
       <div className="border-b bg-card px-6 pt-4 pb-0">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xl font-bold">6. Ficha</h2>
+          <h2 className="text-xl font-bold">{sheetStep?.num ?? 7}. Ficha</h2>
           {validation.isComplete ? (
             <Badge className="bg-success text-success-foreground gap-1">
               <CheckCircle2 className="h-3 w-3" /> Ficha Completa
