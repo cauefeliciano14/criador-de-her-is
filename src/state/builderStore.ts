@@ -10,6 +10,7 @@ export type StepId =
   | "race"
   | "abilities"
   | "equipment"
+  | "choices"
   | "sheet";
 
 export interface StepDef {
@@ -24,7 +25,8 @@ const BASE_STEPS: StepDef[] = [
   { id: "race", num: 3, label: "Raça" },
   { id: "abilities", num: 4, label: "Geração de Atributos" },
   { id: "equipment", num: 5, label: "Equipamentos" },
-  { id: "sheet", num: 6, label: "Ficha" },
+  { id: "choices", num: 6, label: "Escolhas" },
+  { id: "sheet", num: 7, label: "Ficha" },
 ];
 
 export const STEPS: StepDef[] = BASE_STEPS;
