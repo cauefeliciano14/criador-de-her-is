@@ -4,11 +4,14 @@ import { applyRaceEffects } from "@/rules/engine/applyRaceEffects";
 import { useBuilderStore } from "@/state/builderStore";
 import { races, type RaceData, type Subrace } from "@/data/races";
 import { ABILITY_LABELS, ABILITY_SHORT, type AbilityKey } from "@/utils/calculations";
-import { CheckCircle2, Search, Info, ChevronDown, ChevronUp } from "lucide-react";
+import { CheckCircle2, Search, Info, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { getChoicesRequirements } from "@/utils/choices";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function StepRace() {
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [isFiltering, setIsFiltering] = useState(false);
   const [expandedTraits, setExpandedTraits] = useState<Record<string, boolean>>({});
 
   const raceId = useCharacterStore((s) => s.race);
@@ -20,9 +23,21 @@ export function StepRace() {
   const uncompleteStep = useBuilderStore((s) => s.uncompleteStep);
   const setMissing = useBuilderStore((s) => s.setMissing);
 
-  const sorted = [...races]
-    .filter((r) => r.name.toLowerCase().includes(search.toLowerCase()))
-    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  useEffect(() => {
+    setIsFiltering(true);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search.trim().toLowerCase());
+      setIsFiltering(false);
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const sorted = useMemo(
+    () => [...races]
+      .filter((r) => r.name.toLowerCase().includes(debouncedSearch))
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+    [debouncedSearch]
+  );
 
   const selectedRace = races.find((r) => r.id === raceId);
   const selectedSubrace = selectedRace?.subraces.find((sr) => sr.id === subraceId);
@@ -251,8 +266,17 @@ export function StepRace() {
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-md border bg-secondary py-2 pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           />
+          {isFiltering && (
+            <Loader2 className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-muted-foreground" />
+          )}
         </div>
         <div className="space-y-2">
+          {isFiltering && (
+            <div className="space-y-2 pb-1" aria-label="Filtrando raças">
+              <Skeleton className="h-20 w-full rounded-lg" />
+              <Skeleton className="h-20 w-full rounded-lg" />
+            </div>
+          )}
           {sorted.map((r) => {
             const isSelected = raceId === r.id;
             return (

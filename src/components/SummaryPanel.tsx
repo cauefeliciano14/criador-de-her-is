@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Info, CheckCircle2, Star, Wand2, Shield, Swords, Coins, Package,
   Activity, BookOpen, AlertTriangle,
@@ -39,6 +39,32 @@ export function SummaryPanel() {
   );
 
   const [activeTab, setActiveTab] = useState("stats");
+  const [visibleSkills, setVisibleSkills] = useState(18);
+  const [visibleCantrips, setVisibleCantrips] = useState(12);
+  const [visiblePreparedSpells, setVisiblePreparedSpells] = useState(12);
+  const [visibleInventoryItems, setVisibleInventoryItems] = useState(14);
+
+  const spellsById = useMemo(
+    () => Object.fromEntries(spellsData.map((spell) => [spell.id, spell])),
+    []
+  );
+  const sortedLanguages = useMemo(
+    () => [...char.proficiencies.languages].sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [char.proficiencies.languages]
+  );
+  const visibleSkillsList = useMemo(() => ALL_SKILLS.slice(0, visibleSkills), [visibleSkills]);
+  const visibleCantripsList = useMemo(
+    () => char.spells.cantrips.slice(0, visibleCantrips),
+    [char.spells.cantrips, visibleCantrips]
+  );
+  const visiblePreparedList = useMemo(
+    () => char.spells.prepared.slice(0, visiblePreparedSpells),
+    [char.spells.prepared, visiblePreparedSpells]
+  );
+  const visibleInventoryList = useMemo(
+    () => char.inventory.slice(0, visibleInventoryItems),
+    [char.inventory, visibleInventoryItems]
+  );
 
   return (
     <aside className="w-full xl:w-72 shrink-0 border-l flex flex-col overflow-hidden">
@@ -155,7 +181,7 @@ export function SummaryPanel() {
             {/* Skills */}
             <PanelSection title="Perícias">
               <div className="space-y-0.5">
-                {ALL_SKILLS.map((skill) => {
+                {visibleSkillsList.map((skill) => {
                   const mod = calcAbilityMod(finalScores[skill.ability]);
                   const prof = char.skills.includes(skill.name);
                   const total = mod + (prof ? char.proficiencyBonus : 0);
@@ -175,13 +201,22 @@ export function SummaryPanel() {
                   );
                 })}
               </div>
+              {ALL_SKILLS.length > visibleSkills && (
+                <button
+                  type="button"
+                  onClick={() => setVisibleSkills((v) => v + 12)}
+                  className="mt-1 text-[11px] font-medium text-primary hover:underline"
+                >
+                  Mostrar mais perícias ({ALL_SKILLS.length - visibleSkills} restantes)
+                </button>
+              )}
             </PanelSection>
 
             {/* Languages & Proficiencies */}
             {char.proficiencies.languages.length > 0 && (
               <PanelSection title="Idiomas">
                 <div className="flex flex-wrap gap-1">
-                  {[...char.proficiencies.languages].sort((a, b) => a.localeCompare(b, "pt-BR")).map((l) => (
+                  {sortedLanguages.map((l) => (
                     <span key={l} className="rounded bg-secondary px-1.5 py-0.5 text-[11px] font-medium">{l}</span>
                   ))}
                 </div>
@@ -329,8 +364,8 @@ export function SummaryPanel() {
               {char.spells.cantrips.length > 0 && (
                 <PanelSection title={`Truques (${char.spells.cantrips.length})`}>
                   <div className="flex flex-wrap gap-1">
-                    {char.spells.cantrips.map((id) => {
-                      const sp = spellsData.find((s) => s.id === id);
+                    {visibleCantripsList.map((id) => {
+                      const sp = spellsById[id];
                       return (
                         <span key={id} className="rounded bg-secondary px-1.5 py-0.5 text-[11px]">
                           {sp?.name ?? id}
@@ -338,6 +373,15 @@ export function SummaryPanel() {
                       );
                     })}
                   </div>
+                  {char.spells.cantrips.length > visibleCantrips && (
+                    <button
+                      type="button"
+                      onClick={() => setVisibleCantrips((v) => v + 12)}
+                      className="text-[11px] font-medium text-primary hover:underline"
+                    >
+                      Mostrar mais truques ({char.spells.cantrips.length - visibleCantrips} restantes)
+                    </button>
+                  )}
                 </PanelSection>
               )}
 
@@ -345,8 +389,8 @@ export function SummaryPanel() {
               {char.spells.prepared.length > 0 && (
                 <PanelSection title={`${cls?.spellcasting?.type === "known" || cls?.spellcasting?.type === "pact" ? "Conhecidas" : "Preparadas"} (${char.spells.prepared.length})`}>
                   <div className="flex flex-wrap gap-1">
-                    {char.spells.prepared.map((id) => {
-                      const sp = spellsData.find((s) => s.id === id);
+                    {visiblePreparedList.map((id) => {
+                      const sp = spellsById[id];
                       return (
                         <Tooltip key={id}>
                           <TooltipTrigger asChild>
@@ -365,6 +409,15 @@ export function SummaryPanel() {
                       );
                     })}
                   </div>
+                  {char.spells.prepared.length > visiblePreparedSpells && (
+                    <button
+                      type="button"
+                      onClick={() => setVisiblePreparedSpells((v) => v + 12)}
+                      className="text-[11px] font-medium text-primary hover:underline"
+                    >
+                      Mostrar mais magias ({char.spells.prepared.length - visiblePreparedSpells} restantes)
+                    </button>
+                  )}
                 </PanelSection>
               )}
             </TabsContent>
@@ -413,7 +466,7 @@ export function SummaryPanel() {
             {char.inventory.length > 0 ? (
               <PanelSection title={`Itens (${char.inventory.length})`}>
                 <div className="space-y-0.5">
-                  {char.inventory.map((entry) => {
+                  {visibleInventoryList.map((entry) => {
                     const item = itemsById[entry.itemId];
                     return (
                       <div key={entry.itemId} className="flex items-center justify-between text-[11px] py-0.5">
@@ -425,6 +478,15 @@ export function SummaryPanel() {
                     );
                   })}
                 </div>
+                {char.inventory.length > visibleInventoryItems && (
+                  <button
+                    type="button"
+                    onClick={() => setVisibleInventoryItems((v) => v + 12)}
+                    className="text-[11px] font-medium text-primary hover:underline"
+                  >
+                    Mostrar mais itens ({char.inventory.length - visibleInventoryItems} restantes)
+                  </button>
+                )}
               </PanelSection>
             ) : (
               <EmptyState text="Inventário vazio" />
