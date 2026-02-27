@@ -10,6 +10,7 @@ export type StepId =
   | "race"
   | "abilities"
   | "equipment"
+  | "choices"
   | "sheet";
 
 export interface StepDef {
@@ -24,13 +25,15 @@ const BASE_STEPS: StepDef[] = [
   { id: "race", num: 3, label: "Raça" },
   { id: "abilities", num: 4, label: "Geração de Atributos" },
   { id: "equipment", num: 5, label: "Equipamentos" },
-  { id: "sheet", num: 6, label: "Ficha" },
+  { id: "choices", num: 6, label: "Escolhas" },
+  { id: "sheet", num: 7, label: "Ficha" },
 ];
 
 export const STEPS: StepDef[] = BASE_STEPS;
 
 interface BuilderState {
   currentStep: StepId;
+  visibleSteps: StepDef[];
   completedSteps: StepId[];
   requiredMissing: Record<string, string[]>;
   choicesRequirements: ChoicesRequirements | null;
@@ -48,6 +51,7 @@ interface BuilderState {
 
 const DEFAULT_BUILDER = {
   currentStep: "class" as StepId,
+  visibleSteps: STEPS,
   completedSteps: [] as StepId[],
   requiredMissing: {} as Record<string, string[]>,
   choicesRequirements: null as ChoicesRequirements | null,
@@ -87,7 +91,7 @@ export const useBuilderStore = create<BuilderState>()(
           requiredMissing: { ...s.requiredMissing, [step]: items },
         })),
       resetBuilder: () => set({ ...DEFAULT_BUILDER }),
-      getVisibleSteps: () => STEPS,
+      getVisibleSteps: () => get().visibleSteps,
       updateChoicesRequirements: () => {
         const character = useCharacterStore.getState();
         const requirements = getChoicesRequirements(character);

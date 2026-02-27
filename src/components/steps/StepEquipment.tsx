@@ -181,9 +181,6 @@ export function StepEquipment() {
     if (bgEquipChoicePending) {
       missing.push("Escolha seu equipamento inicial da origem");
     }
-    if (pendingChoicesCount > 0) {
-      missing.push(`Resolva escolhas pendentes (${pendingChoicesCount})`);
-    }
     setMissing("equipment", missing);
     if (missing.length === 0) {
       completeStep("equipment");

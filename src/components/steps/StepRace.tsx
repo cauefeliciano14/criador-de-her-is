@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useCharacterStore, mergeUnique, replaceFeatures, type NormalizedFeature } from "@/state/characterStore";
 import { applyRaceEffects } from "@/rules/engine/applyRaceEffects";
 import { useBuilderStore } from "@/state/builderStore";
-import { races, type RaceData, type Subrace } from "@/data/races";
+import { races, hasPlannedRaceContent, type RaceData, type Subrace } from "@/data/races";
 import { ABILITY_LABELS, ABILITY_SHORT, type AbilityKey } from "@/utils/calculations";
 import { CheckCircle2, Search, Info, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { getChoicesRequirements } from "@/utils/choices";
@@ -46,6 +46,7 @@ export function StepRace() {
   const raceLanguageRequired = raceLanguageSource ? Number(raceLanguageSource.split(":").pop()) || 0 : 0;
   const raceChoiceSource = requirements.buckets.raceChoice.sources[0] ?? "";
   const raceChoiceKey = raceChoiceSource.split(":").pop() ?? "";
+  const hasRaceChoiceSource = raceChoiceSource.length > 0;
 
   // === Compute combined bonuses from fixed race + subrace + choices ===
   const computeRacialBonuses = useCallback(
@@ -253,9 +254,9 @@ export function StepRace() {
   const choiceCount = Object.values(raceAbilityChoices).filter((v): v is number => v !== undefined && v > 0).length;
 
   return (
-    <div className="flex gap-0 h-full">
+    <div className="flex flex-col md:flex-row gap-0">
       {/* Left: Race list */}
-      <div className="w-72 shrink-0 border-r p-4 overflow-y-auto">
+      <div className="w-full md:w-72 md:shrink-0 border-b md:border-b-0 md:border-r p-4 overflow-y-auto">
         <h2 className="mb-3 text-lg font-bold">3. Escolha sua Raça</h2>
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -304,7 +305,7 @@ export function StepRace() {
       </div>
 
       {/* Right: Details */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6">
         {selectedRace ? (
           <div className="max-w-3xl">
             <h2 className="text-2xl font-bold">{selectedRace.name}</h2>
@@ -315,7 +316,7 @@ export function StepRace() {
             <div className="mt-6 space-y-4">
               {/* Basic Info */}
               <Section title="Informações Básicas">
-                <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                   <div>
                     <span className="text-muted-foreground">Deslocamento: </span>
                     <span className="font-medium">{selectedRace.speed}m</span>
@@ -559,7 +560,7 @@ export function StepRace() {
               )}
 
               {/* Race Choice */}
-              {requirements.buckets.raceChoice.requiredCount > 0 && selectedRace.raceChoice && (
+              {selectedRace.raceChoice && hasRaceChoiceSource && (
                 <Section title={selectedRace.raceChoice.label}>
                   {requirements.buckets.raceChoice.pendingCount > 0 && selectedRace.raceChoice.required && (
                     <div className="flex items-center gap-2 mb-3 text-info">
@@ -567,22 +568,32 @@ export function StepRace() {
                       <span className="text-sm font-medium">Obrigatório — selecione uma opção</span>
                     </div>
                   )}
+                  {hasPlannedRaceContent(selectedRace) && (
+                    <div className="mb-3">
+                      <Badge variant="secondary">Em desenvolvimento</Badge>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     {selectedRace.raceChoice.options.map((option) => {
+                      const isPlanned = option.availability === "planned";
                       const isSelected = char.raceChoices?.[raceChoiceKey] === option.id;
                       return (
                         <button
                           key={option.id}
+                          disabled={isPlanned}
                           onClick={() => patchCharacter({ raceChoices: { ...char.raceChoices, [raceChoiceKey]: option.id } })}
                           className={`w-full rounded-lg border p-4 text-left transition-all ${
                             isSelected
                               ? "border-primary bg-primary/10 ring-1 ring-primary/30"
                               : "hover:border-muted-foreground/40 hover:bg-secondary"
-                          }`}
+                          } ${isPlanned ? "opacity-70 cursor-not-allowed" : ""}`}
                         >
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between gap-2">
                             <span className="font-semibold text-sm">{option.name}</span>
-                            {isSelected && <CheckCircle2 className="h-4 w-4 text-primary" />}
+                            <div className="flex items-center gap-2">
+                              {isPlanned && <Badge variant="outline">Em desenvolvimento</Badge>}
+                              {isSelected && <CheckCircle2 className="h-4 w-4 text-primary" />}
+                            </div>
                           </div>
                           <p className="mt-1 text-xs text-muted-foreground">{option.description}</p>
                         </button>
@@ -594,7 +605,7 @@ export function StepRace() {
 
               {raceLanguageRequired > 0 && (
                 <Section title="Idiomas (Escolha da Raça)">
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {requirements.buckets.languages.options.map((opt) => {
                       const selected = (char.choiceSelections.languages ?? []).includes(opt.id);
                       return (
@@ -631,7 +642,7 @@ export function StepRace() {
             </div>
           </div>
         ) : (
-          <div className="flex h-full items-center justify-center text-muted-foreground">
+          <div className="flex min-h-[200px] items-center justify-center text-muted-foreground">
             <p>Selecione uma raça na lista ao lado para ver os detalhes.</p>
           </div>
         )}
