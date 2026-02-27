@@ -95,6 +95,25 @@ const applyToolChoice = () => {
     char.proficiencies.tools,
   ]);
 
+  // Check completion - must be before early return to respect hooks rules
+  const isComplete = useMemo(() => {
+    if (!choicesRequirements) return false;
+    if (choicesRequirements.skills.pendingCount > 0) return false;
+    if (choicesRequirements.cantrips.pendingCount > 0) return false;
+    if (choicesRequirements.spells.pendingCount > 0) return false;
+    if (choicesRequirements.languages.pendingCount > 0) return false;
+    if (choicesRequirements.tools.pendingCount > 0) return false;
+    return true;
+  }, [choicesRequirements]);
+
+  useEffect(() => {
+    if (isComplete) {
+      completeStep("choices");
+    } else {
+      uncompleteStep("choices");
+    }
+  }, [isComplete, completeStep, uncompleteStep]);
+
   if (!choicesRequirements) return null;
 
   const hasSkills = choicesRequirements.skills.pendingCount > 0;
@@ -182,24 +201,24 @@ const applyToolChoice = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-          {ALL_SKILLS.map((skill) => {
-            const isSelected = char.classSkillChoices.includes(skill);
-            const ability = ALL_SKILLS[skill];
+          {ALL_SKILLS.map((skillObj) => {
+            const skillName = skillObj.name;
+            const ability = skillObj.ability;
+            const isSelected = char.classSkillChoices.includes(skillName);
             const mod = calcAbilityMod(finalScores[ability]);
-            const isProficient = char.classSkillChoices.includes(skill);
-            const bonus = isProficient ? mod + char.proficiencyBonus : mod;
+            const bonus = isSelected ? mod + char.proficiencyBonus : mod;
 
             return (
               <button
-                key={skill}
+                key={skillName}
                 onClick={() => {
                   if (isSelected) {
                     patchCharacter({
-                      classSkillChoices: char.classSkillChoices.filter(s => s !== skill)
+                      classSkillChoices: char.classSkillChoices.filter(s => s !== skillName)
                     });
                   } else if (remainingSkills > 0) {
                     patchCharacter({
-                      classSkillChoices: [...char.classSkillChoices, skill]
+                      classSkillChoices: [...char.classSkillChoices, skillName]
                     });
                   }
                 }}
@@ -210,7 +229,7 @@ const applyToolChoice = () => {
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-medium">{skill}</span>
+                  <span className="font-medium">{skillName}</span>
                   <div className="flex items-center gap-1">
                     <span className="text-sm text-muted-foreground">
                       {ABILITY_SHORT[ability]}
@@ -376,34 +395,6 @@ const applyToolChoice = () => {
       </div>
     );
   };
-
-  // Check completion
-  const isComplete = useMemo(() => {
-    if (!choicesRequirements) return false;
-    
-    // Check skills
-    if (choicesRequirements.skills.pendingCount > 0) return false;
-    
-    // Check cantrips
-    if (choicesRequirements.cantrips.pendingCount > 0) return false;
-    
-    // Check spells
-    if (choicesRequirements.spells.pendingCount > 0) return false;
-
-    // Check generic placeholders
-    if (choicesRequirements.languages.pendingCount > 0) return false;
-    if (choicesRequirements.tools.pendingCount > 0) return false;
-    
-    return true;
-  }, [choicesRequirements]);
-
-  useEffect(() => {
-    if (isComplete) {
-      completeStep("choices");
-    } else {
-      uncompleteStep("choices");
-    }
-  }, [isComplete, completeStep, uncompleteStep]);
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-8">

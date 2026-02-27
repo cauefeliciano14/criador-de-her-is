@@ -8,8 +8,8 @@ import { SPELLS_CANON_2024 } from "./spellCanon";
  * The app continues running; this is diagnostic output only.
  */
 export function runSpellCanonAudit(): void {
-  const canonSet = new Set(SPELLS_CANON_2024.map((s) => s.name));
-  const dataSet = new Set(spells.map((s) => s.name));
+  const canonSet = new Set<string>(SPELLS_CANON_2024.map((s) => s.name));
+  const dataSet = new Set<string>(spells.map((s) => s.name));
 
   const extras = [...dataSet].filter((n) => !canonSet.has(n)).sort((a, b) => a.localeCompare(b, "pt-BR"));
   const missing = [...canonSet].filter((n) => !dataSet.has(n)).sort((a, b) => a.localeCompare(b, "pt-BR"));
