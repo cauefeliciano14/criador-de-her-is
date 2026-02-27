@@ -362,9 +362,9 @@ export const useCharacterStore = create<CharacterState & CharacterActions>()(
       storage: throttledStorage,
       onRehydrateStorage: () => (state, error) => {
         if (error) {
-          useCharacterStore.setState({
+          set({
             persistError: "Falha ao restaurar dados salvos. Verifique o armazenamento do navegador.",
-          });
+          } as Partial<CharacterState & CharacterActions>);
           return;
         }
 
