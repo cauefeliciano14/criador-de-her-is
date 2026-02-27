@@ -38,7 +38,7 @@ export function IdentityHeader() {
   };
 
   return (
-    <div className="border-b bg-card px-6 py-4">
+    <div id="identity-header-panel" className="border-b bg-card px-6 py-4">
       <div className="max-w-md">
         <h3 className="text-sm font-semibold mb-3">Identidade do Personagem</h3>
         <div className="grid grid-cols-2 gap-4">
@@ -49,6 +49,7 @@ export function IdentityHeader() {
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
               placeholder="Nome do personagem"
+              autoComplete="off"
               className="mt-1"
             />
           </div>
