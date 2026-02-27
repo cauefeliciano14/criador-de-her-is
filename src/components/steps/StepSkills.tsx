@@ -66,19 +66,35 @@ function getExpertiseConfigs(classId: string | null): ExpertiseConfig[] {
 }
 
 export function StepSkills() {
-  const char = useCharacterStore();
+  const classId = useCharacterStore((s) => s.class);
+  const backgroundId = useCharacterStore((s) => s.background);
+  const raceId = useCharacterStore((s) => s.race);
+  const subraceId = useCharacterStore((s) => s.subrace);
+  const abilityScores = useCharacterStore((s) => s.abilityScores);
+  const racialBonuses = useCharacterStore((s) => s.racialBonuses);
+  const backgroundBonuses = useCharacterStore((s) => s.backgroundBonuses);
+  const asiBonuses = useCharacterStore((s) => s.asiBonuses);
+  const featAbilityBonuses = useCharacterStore((s) => s.featAbilityBonuses);
+  const classSkillChoices = useCharacterStore((s) => s.classSkillChoices);
+  const level = useCharacterStore((s) => s.level);
+  const classFeatureChoices = useCharacterStore((s) => s.classFeatureChoices);
+  const expertiseSkills = useCharacterStore((s) => s.expertiseSkills);
+  const skills = useCharacterStore((s) => s.skills);
+  const classEquipmentChoice = useCharacterStore((s) => s.classEquipmentChoice);
+  const savingThrows = useCharacterStore((s) => s.savingThrows);
+  const proficiencyBonus = useCharacterStore((s) => s.proficiencyBonus);
   const patchCharacter = useCharacterStore((s) => s.patchCharacter);
   const completeStep = useBuilderStore((s) => s.completeStep);
   const uncompleteStep = useBuilderStore((s) => s.uncompleteStep);
   const setMissing = useBuilderStore((s) => s.setMissing);
   const goToStep = useBuilderStore((s) => s.goToStep);
 
-  const cls = classes.find((c) => c.id === char.class);
-  const bg = backgrounds.find((b) => b.id === char.background);
-  const race = races.find((r) => r.id === char.race);
-  const subrace = race?.subraces.find((sr) => sr.id === char.subrace);
+  const cls = classes.find((c) => c.id === classId);
+  const bg = backgrounds.find((b) => b.id === backgroundId);
+  const race = races.find((r) => r.id === raceId);
+  const subrace = race?.subraces.find((sr) => sr.id === subraceId);
 
-  const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses, char.featAbilityBonuses);
+  const finalScores = getFinalAbilityScores(abilityScores, racialBonuses, backgroundBonuses, asiBonuses, featAbilityBonuses);
 
   // --- Derive sources ---
   const bgSkills = bg?.skills ?? [];
@@ -88,7 +104,6 @@ export function StepSkills() {
 
   const classChoices = cls?.skillChoices;
   const maxClassSkills = classChoices?.choose ?? 0;
-  const classSkillChoices = char.classSkillChoices;
 
   const allProficientSkills = useMemo(
     () => mergeUnique(fixedSkills, classSkillChoices),
@@ -97,15 +112,15 @@ export function StepSkills() {
 
   // --- Expertise configs ---
   const expertiseConfigs = useMemo(() => {
-    const configs = getExpertiseConfigs(char.class);
-    return configs.filter((c) => char.level >= c.minLevel);
-  }, [char.class, char.level]);
+    const configs = getExpertiseConfigs(classId);
+    return configs.filter((c) => level >= c.minLevel);
+  }, [classId, level]);
 
   // Current expertise choices from classFeatureChoices
   const expertiseChoices = useMemo(() => {
     const map: Record<string, string[]> = {};
     for (const config of expertiseConfigs) {
-      const val = char.classFeatureChoices[config.key];
+      const val = classFeatureChoices[config.key];
       if (Array.isArray(val)) {
         map[config.key] = val;
       } else if (typeof val === "string") {
@@ -115,7 +130,7 @@ export function StepSkills() {
       }
     }
     return map;
-  }, [expertiseConfigs, char.classFeatureChoices]);
+  }, [expertiseConfigs, classFeatureChoices]);
 
   // All expertise skills (flattened)
   const allExpertiseSkills = useMemo(() => {
@@ -125,11 +140,11 @@ export function StepSkills() {
   // Sync expertiseSkills to store when choices change
   useEffect(() => {
     const sorted = [...allExpertiseSkills].sort();
-    const current = [...(char.expertiseSkills ?? [])].sort();
+    const current = [...(expertiseSkills ?? [])].sort();
     if (JSON.stringify(sorted) !== JSON.stringify(current)) {
       patchCharacter({ expertiseSkills: allExpertiseSkills });
     }
-  }, [allExpertiseSkills]);
+  }, [allExpertiseSkills, expertiseSkills, patchCharacter]);
 
   const toggleExpertise = useCallback((configKey: string, skill: string, maxCount: number) => {
     const current = expertiseChoices[configKey] ?? [];
@@ -141,9 +156,9 @@ export function StepSkills() {
       next = [...current, skill];
     }
     // Also make sure this skill isn't in another expertise config
-    const newChoices = { ...char.classFeatureChoices, [configKey]: next };
+    const newChoices = { ...classFeatureChoices, [configKey]: next };
     patchCharacter({ classFeatureChoices: newChoices });
-  }, [expertiseChoices, char.classFeatureChoices, patchCharacter]);
+  }, [expertiseChoices, classFeatureChoices, patchCharacter]);
 
   // Build skill proficiency map with sources
   const skillMap = useMemo(() => {
@@ -214,26 +229,26 @@ export function StepSkills() {
   // --- Sync final skills with all sources ---
   useEffect(() => {
     const allSkills = mergeUnique(fixedSkills, classSkillChoices);
-    if (JSON.stringify([...allSkills].sort()) !== JSON.stringify([...char.skills].sort())) {
+    if (JSON.stringify([...allSkills].sort()) !== JSON.stringify([...skills].sort())) {
       patchCharacter({ skills: allSkills });
     }
-  }, [fixedSkills, classSkillChoices]);
+  }, [fixedSkills, classSkillChoices, skills, patchCharacter]);
 
   // --- Pendencies ---
   const pendencies = useMemo(() => {
     const list: { text: string; step?: string }[] = [];
-    if (!char.class) list.push({ text: "Escolher classe", step: "class" });
-    if (!char.background) list.push({ text: "Escolher antecedente", step: "origin" });
-    if (!char.race) list.push({ text: "Escolher raça", step: "race" });
+    if (!classId) list.push({ text: "Escolher classe", step: "class" });
+    if (!backgroundId) list.push({ text: "Escolher antecedente", step: "origin" });
+    if (!raceId) list.push({ text: "Escolher raça", step: "race" });
     if (cls && classSkillChoices.length < maxClassSkills) {
       list.push({
         text: `Escolher ${maxClassSkills - classSkillChoices.length} perícia(s) da classe`,
       });
     }
-    if (!char.classEquipmentChoice && cls) {
+    if (!classEquipmentChoice && cls) {
       list.push({ text: "Escolher equipamento inicial da classe", step: "equipment" });
     }
-    if (race && race.subraces.length > 0 && !char.subrace) {
+    if (race && race.subraces.length > 0 && !subraceId) {
       list.push({ text: "Selecionar sub-raça", step: "race" });
     }
     // Expertise pendencies
@@ -244,7 +259,7 @@ export function StepSkills() {
       }
     }
     return list;
-  }, [char, cls, classSkillChoices, maxClassSkills, race, expertiseConfigs, expertiseChoices]);
+  }, [classId, backgroundId, raceId, classEquipmentChoice, subraceId, cls, classSkillChoices, maxClassSkills, race, expertiseConfigs, expertiseChoices]);
 
   useEffect(() => {
     const missing = pendencies.map((p) => p.text);
@@ -257,8 +272,8 @@ export function StepSkills() {
   );
 
   // Bard half prof indicator
-  const isBardL2 = char.class === "bardo" && char.level >= 2;
-  const halfProfValue = Math.floor(char.proficiencyBonus / 2);
+  const isBardL2 = classId === "bardo" && level >= 2;
+  const halfProfValue = Math.floor(proficiencyBonus / 2);
 
   return (
     <div className="p-6 space-y-6">
@@ -299,9 +314,9 @@ export function StepSkills() {
       <div className="grid gap-4 sm:grid-cols-2">
         {/* Saving Throws */}
         <Section title="Salvaguardas" icon={<Shield className="h-4 w-4" />}>
-          {char.savingThrows.length > 0 ? (
+          {savingThrows.length > 0 ? (
             <div className="flex flex-wrap gap-2">
-              {[...char.savingThrows].sort((a, b) => a.localeCompare(b, "pt-BR")).map((st) => (
+              {[...savingThrows].sort((a, b) => a.localeCompare(b, "pt-BR")).map((st) => (
                 <span key={st} className="rounded bg-primary/10 border border-primary/30 px-2 py-1 text-xs font-medium">
                   {st}
                 </span>
@@ -317,8 +332,8 @@ export function StepSkills() {
 
         {/* Proficiency Bonus */}
         <Section title="Bônus de Proficiência" icon={<CheckCircle2 className="h-4 w-4" />}>
-          <p className="text-2xl font-bold">+{char.proficiencyBonus}</p>
-          <p className="text-[10px] text-muted-foreground">Nível {char.level}</p>
+          <p className="text-2xl font-bold">+{proficiencyBonus}</p>
+          <p className="text-[10px] text-muted-foreground">Nível {level}</p>
         </Section>
 
         {/* Languages */}
@@ -482,9 +497,9 @@ export function StepSkills() {
             let halfProf = false;
 
             if (isExpert) {
-              profBonus = char.proficiencyBonus * 2;
+              profBonus = proficiencyBonus * 2;
             } else if (info.proficient) {
-              profBonus = char.proficiencyBonus;
+              profBonus = proficiencyBonus;
             } else if (isBardL2) {
               profBonus = halfProfValue;
               halfProf = true;
