@@ -3,7 +3,6 @@ import { persist, type StorageValue } from "zustand/middleware";
 import { type AbilityKey } from "@/utils/calculations";
 import { recalcAll, type SkillMod, type SaveMod, type RulesWarning } from "@/rules/engine/recalcAll";
 import type { InventoryEntry, EquippedState, AttackEntry } from "@/data/items";
-import type { DragonbornHeritageId, ElfLineageId, GnomeLineageId, GiantAncestryId, InfernalLegacyId } from "@/data/races";
 import { perfTime } from "@/utils/perf";
 import { getChoicesRequirements } from "@/utils/choices";
 
@@ -81,14 +80,7 @@ export interface AppliedFeat {
   choices?: { abilityIncreases?: Partial<Record<AbilityKey, number>> };
 }
 
-export interface RaceChoicesState {
-  dragonbornHeritage?: DragonbornHeritageId;
-  elfLineage?: ElfLineageId;
-  gnomeLineage?: GnomeLineageId;
-  giantAncestry?: GiantAncestryId;
-  infernalLegacy?: InfernalLegacyId;
-  raceChoice?: { kind: string; optionId: string };
-}
+export type RaceChoicesState = Record<string, string>;
 
 export interface ChoiceSelectionsState {
   classSkills: string[];
@@ -257,12 +249,7 @@ function sanitizeChoiceSelections(char: CharacterState): CharacterState {
     choiceSelections: nextSelections,
     classSkillChoices: nextSelections.classSkills,
     spells: { ...char.spells, cantrips: nextSelections.cantrips, prepared: nextSelections.spells },
-    raceChoices: {
-      ...char.raceChoices,
-      raceChoice: nextSelections.raceChoice
-        ? { kind: char.raceChoices.raceChoice?.kind ?? "race", optionId: nextSelections.raceChoice }
-        : undefined,
-    },
+    raceChoices: { ...char.raceChoices },
   };
 }
 
@@ -323,6 +310,17 @@ export const useCharacterStore = create<CharacterState & CharacterActions>()(
             raceChoice: old?.raceChoice ?? legacy.raceChoices?.raceChoice?.optionId ?? null,
             classFeats: old?.classFeats ?? [],
           };
+          const legacyRaceState: any = legacy.raceChoices ?? {};
+          const legacyRaceChoices: Record<string, string> = { ...(legacyRaceState ?? {}) };
+          if (legacyRaceState?.dragonbornHeritage) legacyRaceChoices.draconicAncestry = legacyRaceState.dragonbornHeritage;
+          if (legacyRaceState?.elfLineage) legacyRaceChoices.elvenLineage = legacyRaceState.elfLineage;
+          if (legacyRaceState?.gnomeLineage) legacyRaceChoices.gnomishLineage = legacyRaceState.gnomeLineage;
+          if (legacyRaceState?.giantAncestry) legacyRaceChoices.giantAncestry = legacyRaceState.giantAncestry;
+          if (legacyRaceState?.infernalLegacy) legacyRaceChoices.infernalLegacy = legacyRaceState.infernalLegacy;
+          if (legacyRaceState?.raceChoice?.kind && legacyRaceState?.raceChoice?.optionId) {
+            legacyRaceChoices[legacyRaceState.raceChoice.kind] = legacyRaceState.raceChoice.optionId;
+          }
+          legacy.raceChoices = legacyRaceChoices;
           return legacy;
         } catch {
           return { ...DEFAULT_CHARACTER };

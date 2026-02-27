@@ -34,10 +34,7 @@ export function StepChoices() {
         cantrips: bucket === "cantrips" ? next : char.spells.cantrips,
         prepared: bucket === "spells" ? next : char.spells.prepared,
       },
-      raceChoices: {
-        ...char.raceChoices,
-        raceChoice: bucket === "raceChoice" && next[0] ? { kind: "race", optionId: next[0] } : char.raceChoices.raceChoice,
-      },
+      raceChoices: bucket === "raceChoice" && next[0] ? { ...char.raceChoices, raceChoice: next[0] } : char.raceChoices,
     });
   };
 
