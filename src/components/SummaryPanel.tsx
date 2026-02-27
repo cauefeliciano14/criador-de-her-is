@@ -42,16 +42,33 @@ export function SummaryPanel() {
 
   return (
     <aside className="w-72 shrink-0 border-l flex flex-col overflow-hidden">
-      {/* Identity header */}
+      {/* Identity header (read-only mirror, edição principal no topo) */}
       <div className="border-b bg-card p-3">
-        <input
-          type="text"
-          placeholder="Nome do Personagem"
-          value={char.name}
-          onChange={(e) => char.setField("name", e.target.value)}
-          className="w-full bg-transparent text-sm font-bold placeholder:text-muted-foreground/50 focus:outline-none border-b border-transparent focus:border-primary pb-0.5 transition-colors"
-          aria-label="Nome do personagem"
-        />
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Identidade</p>
+            <p className="truncate text-sm font-bold" aria-label="Nome do personagem">
+              {char.name?.trim() || "Sem nome"}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const target = document.getElementById("character-name") as HTMLInputElement | null;
+              if (target) {
+                target.focus();
+                target.select();
+              }
+            }}
+            className="shrink-0 text-[11px] font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
+            aria-label="Editar identidade no topo da página"
+          >
+            Editar identidade
+          </button>
+        </div>
+        <p className="mt-1 text-[10px] text-muted-foreground">
+          Edição disponível no cabeçalho superior para manter o foco e a navegação por etapas consistentes.
+        </p>
         <div className="flex flex-wrap gap-1 mt-1.5">
           {race && <MiniTag>{race.name}{subrace ? ` (${subrace.name})` : ""}</MiniTag>}
           {cls && <MiniTag>{cls.name} {char.level}</MiniTag>}
