@@ -1,6 +1,6 @@
 import { useCharacterStore } from "@/state/characterStore";
 import { useBuilderStore, type StepId } from "@/state/builderStore";
-import { races } from "@/data/races";
+import { races, hasPlannedRaceContent } from "@/data/races";
 import { classes } from "@/data/classes";
 import { backgrounds } from "@/data/backgrounds";
 import { spells as spellsData } from "@/data/spells";
@@ -199,11 +199,12 @@ export function StepReview() {
             onChange={(e) => char.setField("name", e.target.value)}
             className="text-2xl font-bold bg-transparent border-b border-border focus:border-primary outline-none pb-1 w-full sm:w-auto min-w-[200px] transition-colors"
           />
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
             <Tag>{race?.name ?? "—"}{subrace ? ` (${subrace.name})` : ""}</Tag>
             <Tag>{cls?.name ?? "—"}</Tag>
             <Tag>{bg?.name ?? "—"}</Tag>
             <Tag>Nível {char.level}</Tag>
+            {hasPlannedRaceContent(race) && <Badge variant="outline">Em desenvolvimento</Badge>}
           </div>
         </div>
       </Section>

@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { useCharacterStore } from "@/state/characterStore";
 import { useBuilderStore } from "@/state/builderStore";
-import { races } from "@/data/races";
+import { races, hasPlannedRaceContent } from "@/data/races";
 import { classes } from "@/data/classes";
 import { backgrounds } from "@/data/backgrounds";
 import { spells as spellsData } from "@/data/spells";
@@ -18,6 +18,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
 
 export function SummaryPanel() {
   const char = useCharacterStore();
@@ -69,10 +70,11 @@ export function SummaryPanel() {
         <p className="mt-1 text-[10px] text-muted-foreground">
           Edição disponível no cabeçalho superior para manter o foco e a navegação por etapas consistentes.
         </p>
-        <div className="flex flex-wrap gap-1 mt-1.5">
+        <div className="flex flex-wrap gap-1 mt-1.5 items-center">
           {race && <MiniTag>{race.name}{subrace ? ` (${subrace.name})` : ""}</MiniTag>}
           {cls && <MiniTag>{cls.name} {char.level}</MiniTag>}
           {bg && <MiniTag>{bg.name}</MiniTag>}
+          {hasPlannedRaceContent(race) && <Badge variant="outline" className="text-[10px] h-5">Em desenvolvimento</Badge>}
           {!race && !cls && <span className="text-[11px] text-muted-foreground italic">Nenhuma escolha feita</span>}
         </div>
       </div>
