@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { useBuilderStore } from "@/state/builderStore";
 import { useCharacterStore } from "@/state/characterStore";
-import { getChoicesRequirements, type ChoiceOption } from "@/utils/choices";
+import { getCanonicalRaceChoiceKeyFromSources, getChoicesRequirements, type ChoiceOption } from "@/utils/choices";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { CheckCircle2 } from "lucide-react";
@@ -41,6 +41,18 @@ export function StepChoices() {
     if (bucket === "raceChoice") choiceSelections.raceChoice = next[0] ?? null;
     else (choiceSelections as any)[bucket] = next;
 
+    const raceChoiceKey = getCanonicalRaceChoiceKeyFromSources(requirements.buckets.raceChoice.sources);
+    const nextRaceChoices = bucket === "raceChoice"
+      ? (() => {
+          if (!raceChoiceKey) return char.raceChoices;
+          if (!next[0]) {
+            const { [raceChoiceKey]: _removed, ...rest } = char.raceChoices;
+            return rest;
+          }
+          return { ...char.raceChoices, [raceChoiceKey]: next[0] };
+        })()
+      : char.raceChoices;
+
     patchCharacter({
       choiceSelections,
       classSkillChoices: bucket === "classSkills" ? next : char.classSkillChoices,
@@ -49,7 +61,7 @@ export function StepChoices() {
         cantrips: bucket === "cantrips" ? next : char.spells.cantrips,
         prepared: bucket === "spells" ? next : char.spells.prepared,
       },
-      raceChoices: bucket === "raceChoice" && next[0] ? { ...char.raceChoices, raceChoice: next[0] } : char.raceChoices,
+      raceChoices: nextRaceChoices,
     });
   };
 

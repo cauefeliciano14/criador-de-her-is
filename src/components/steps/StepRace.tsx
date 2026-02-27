@@ -5,7 +5,7 @@ import { useBuilderStore } from "@/state/builderStore";
 import { races, hasPlannedRaceContent, type RaceData, type Subrace } from "@/data/races";
 import { ABILITY_LABELS, ABILITY_SHORT, type AbilityKey } from "@/utils/calculations";
 import { CheckCircle2, Search, Info, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
-import { getChoicesRequirements } from "@/utils/choices";
+import { getCanonicalRaceChoiceKeyFromSources, getChoicesRequirements } from "@/utils/choices";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function StepRace() {
@@ -44,9 +44,8 @@ export function StepRace() {
   const requirements = useMemo(() => getChoicesRequirements(char), [char.class, char.race, char.background, char.level, char.choiceSelections]);
   const raceLanguageSource = requirements.buckets.languages.sources.find((s) => s.startsWith("race:"));
   const raceLanguageRequired = raceLanguageSource ? Number(raceLanguageSource.split(":").pop()) || 0 : 0;
-  const raceChoiceSource = requirements.buckets.raceChoice.sources[0] ?? "";
-  const raceChoiceKey = raceChoiceSource.split(":").pop() ?? "";
-  const hasRaceChoiceSource = raceChoiceSource.length > 0;
+  const raceChoiceKey = getCanonicalRaceChoiceKeyFromSources(requirements.buckets.raceChoice.sources);
+  const hasRaceChoiceSource = raceChoiceKey.length > 0;
 
   // === Compute combined bonuses from fixed race + subrace + choices ===
   const computeRacialBonuses = useCallback(

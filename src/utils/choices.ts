@@ -55,6 +55,17 @@ const RACE_CHOICE_KEY_BY_KIND: Record<string, string> = {
   sizeChoice: "height",
 };
 
+export function getCanonicalRaceChoiceKey(kind?: string | null) {
+  if (!kind) return "";
+  return RACE_CHOICE_KEY_BY_KIND[kind] ?? kind;
+}
+
+export function getCanonicalRaceChoiceKeyFromSources(sources: string[]) {
+  const source = (sources ?? []).find((entry) => entry.startsWith("race:"));
+  if (!source) return "";
+  return source.split(":").pop() ?? "";
+}
+
 const normalize = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const countChoicesFromText = (text: string) => NUMBER_WORDS[(text.match(/\b(um|uma|dois|duas|três|tres|quatro|cinco)\b/i)?.[1] ?? "um").toLowerCase()] ?? 1;
 const uniq = (options: ChoiceOption[]) => [...new Map(options.map((o) => [o.id, o])).values()];
@@ -168,7 +179,7 @@ export function getChoicesRequirements(character: CharacterState, datasets: Choi
 
   const raceChoiceData = currentRace?.raceChoice;
   const raceChoiceOptionsReady = (raceChoiceData?.options ?? []).filter((option: RaceChoiceOption) => option.availability !== "planned");
-  const raceChoiceKey = raceChoiceData?.kind ? (RACE_CHOICE_KEY_BY_KIND[raceChoiceData.kind] ?? raceChoiceData.kind) : "";
+  const raceChoiceKey = getCanonicalRaceChoiceKey(raceChoiceData?.kind);
   const raceChoiceRequired = raceChoiceData?.required && currentRace?.id !== "aasimar" && raceChoiceOptionsReady.length > 0 ? 1 : 0;
   const raceChoiceSelected = raceChoiceKey ? character.raceChoices?.[raceChoiceKey] : null;
   const classFeatRequired = character.class === "guerreiro" ? 1 : (character.class === "guardiao" && character.level >= 2 ? 1 : 0);
