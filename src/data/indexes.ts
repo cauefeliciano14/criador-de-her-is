@@ -22,10 +22,12 @@ export const spellsBySchool: Record<string, SpellData[]> = {};
 const classNameToId: Record<string, string> = Object.fromEntries(classes.map((c) => [c.name, c.id]));
 
 for (const spell of spells) {
-  // By class
-  for (const cls of spell.classes) {
-    const classId = classNameToId[cls];
-    if (classId) (spellsByClassId[classId] ??= []).push(spell);
+  // By class (ID-first; fallback for legacy name-based payloads)
+  const classIds = Array.isArray((spell as any).classIds) && (spell as any).classIds.length > 0
+    ? (spell as any).classIds
+    : (spell.classes ?? []).map((cls) => classNameToId[cls]).filter(Boolean);
+  for (const classId of classIds) {
+    (spellsByClassId[classId] ??= []).push(spell);
   }
   // By level
   (spellsByLevel[spell.level] ??= []).push(spell);

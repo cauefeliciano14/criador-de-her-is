@@ -34,6 +34,16 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
   const bg = backgrounds.find((b) => b.id === char.background);
 
   // 1. Ability method
+  if (char.level > 2) {
+    missing.push({
+      id: "level-unsupported",
+      label: "Somente níveis 1 e 2 são suportados neste recorte",
+      stepId: "sheet",
+      stepNumber: 6,
+      severity: "required",
+    });
+  }
+
   if (!char.abilityGeneration.method || !char.abilityGeneration.confirmed) {
     missing.push({
       id: "ability-method",
@@ -173,7 +183,7 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
           id: `expertise-${check.key}`,
           label: `${check.label}: ${chosen}/${check.count} escolhido(s)`,
           stepId: useChoicesStep ? "choices" : "sheet",
-          stepNumber: useChoicesStep ? 6 : 6,
+          stepNumber: useChoicesStep ? 5 : 6,
           severity: "required",
         });
       }
