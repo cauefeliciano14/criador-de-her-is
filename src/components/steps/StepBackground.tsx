@@ -99,9 +99,9 @@ export function StepBackground() {
   };
 
   return (
-    <div className="flex gap-0 h-full">
+    <div className="flex flex-col md:flex-row gap-0">
       {/* Left - list */}
-      <div className="w-72 shrink-0 border-r p-4 overflow-y-auto">
+      <div className="w-full md:w-72 md:shrink-0 border-b md:border-b-0 md:border-r p-4 overflow-y-auto">
         <h2 className="mb-3 text-lg font-bold">2. Origem</h2>
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -140,7 +140,7 @@ export function StepBackground() {
       </div>
 
       {/* Right - details */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6">
         {selectedBg ? (
           <BackgroundDetails
             bg={selectedBg}
@@ -152,7 +152,7 @@ export function StepBackground() {
             onToggleLanguage={toggleLanguage}
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-muted-foreground">
+          <div className="flex min-h-[200px] items-center justify-center text-muted-foreground">
             <p>Selecione um antecedente na lista ao lado.</p>
           </div>
         )}
@@ -233,7 +233,7 @@ function BackgroundDetails({ bg, featExpanded, onToggleFeat, bgLanguageRequired,
 
         {bgLanguageRequired > 0 && (
           <Section title="Idiomas (Escolha do Antecedente)">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {languageOptions.map((l) => {
                 const selected = selectedLanguages.includes(l.id);
                 return <button key={l.id} onClick={() => onToggleLanguage(l.id)} className={`rounded border px-2 py-1 text-sm text-left ${selected ? "border-primary bg-primary/10" : "hover:bg-secondary"}`}>{l.name}</button>;

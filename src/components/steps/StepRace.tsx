@@ -240,9 +240,9 @@ export function StepRace() {
   const choiceCount = Object.values(raceAbilityChoices).filter((v): v is number => v !== undefined && v > 0).length;
 
   return (
-    <div className="flex gap-0 h-full">
+    <div className="flex flex-col md:flex-row gap-0">
       {/* Left: Race list */}
-      <div className="w-72 shrink-0 border-r p-4 overflow-y-auto">
+      <div className="w-full md:w-72 md:shrink-0 border-b md:border-b-0 md:border-r p-4 overflow-y-auto">
         <h2 className="mb-3 text-lg font-bold">3. Escolha sua Raça</h2>
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -282,7 +282,7 @@ export function StepRace() {
       </div>
 
       {/* Right: Details */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6">
         {selectedRace ? (
           <div className="max-w-3xl">
             <h2 className="text-2xl font-bold">{selectedRace.name}</h2>
@@ -293,7 +293,7 @@ export function StepRace() {
             <div className="mt-6 space-y-4">
               {/* Basic Info */}
               <Section title="Informações Básicas">
-                <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                   <div>
                     <span className="text-muted-foreground">Deslocamento: </span>
                     <span className="font-medium">{selectedRace.speed}m</span>
@@ -582,7 +582,7 @@ export function StepRace() {
 
               {raceLanguageRequired > 0 && (
                 <Section title="Idiomas (Escolha da Raça)">
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {requirements.buckets.languages.options.map((opt) => {
                       const selected = (char.choiceSelections.languages ?? []).includes(opt.id);
                       return (
@@ -619,7 +619,7 @@ export function StepRace() {
             </div>
           </div>
         ) : (
-          <div className="flex h-full items-center justify-center text-muted-foreground">
+          <div className="flex min-h-[200px] items-center justify-center text-muted-foreground">
             <p>Selecione uma raça na lista ao lado para ver os detalhes.</p>
           </div>
         )}
