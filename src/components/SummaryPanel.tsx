@@ -56,7 +56,7 @@ export function SummaryPanel() {
           {race && <MiniTag>{race.name}{subrace ? ` (${subrace.name})` : ""}</MiniTag>}
           {cls && <MiniTag>{cls.name} {char.level}</MiniTag>}
           {bg && <MiniTag>{bg.name}</MiniTag>}
-          {!race && !cls && <span className="text-[10px] text-muted-foreground italic">Nenhuma escolha feita</span>}
+          {!race && !cls && <span className="text-[11px] text-muted-foreground italic">Nenhuma escolha feita</span>}
         </div>
       </div>
 
@@ -97,11 +97,11 @@ export function SummaryPanel() {
                 const mod = calcAbilityMod(total);
                 return (
                   <div key={a} className="rounded-lg border bg-secondary/30 p-2 text-center">
-                    <p className="text-[9px] uppercase text-muted-foreground font-semibold tracking-wider">
+                    <p className="text-[11px] uppercase text-muted-foreground font-semibold tracking-wider">
                       {ABILITY_SHORT[a]}
                     </p>
                     <p className="text-lg font-bold leading-tight">{total}</p>
-                    <p className={`text-[10px] font-semibold ${mod >= 0 ? "text-success" : "text-destructive"}`}>
+                    <p className={`text-xs font-semibold ${mod >= 0 ? "text-success" : "text-destructive"}`}>
                       {mod >= 0 ? "+" : ""}{mod}
                     </p>
                   </div>
@@ -150,7 +150,7 @@ export function SummaryPanel() {
                         <span className="h-2.5 w-2.5 rounded-full border border-muted-foreground/20 shrink-0" />
                       )}
                       <span className="flex-1 truncate">{skill.name}</span>
-                      <span className="text-[9px] text-muted-foreground/50 mr-1">{ABILITY_SHORT[skill.ability]}</span>
+                      <span className="text-[11px] text-muted-foreground/70 mr-1 font-medium">{ABILITY_SHORT[skill.ability]}</span>
                       <span className={`font-mono font-bold text-[11px] w-5 text-right ${prof ? "" : "text-muted-foreground/40"}`}>
                         {total >= 0 ? "+" : ""}{total}
                       </span>
@@ -165,7 +165,7 @@ export function SummaryPanel() {
               <PanelSection title="Idiomas">
                 <div className="flex flex-wrap gap-1">
                   {[...char.proficiencies.languages].sort((a, b) => a.localeCompare(b, "pt-BR")).map((l) => (
-                    <span key={l} className="rounded bg-secondary px-1.5 py-0.5 text-[10px]">{l}</span>
+                    <span key={l} className="rounded bg-secondary px-1.5 py-0.5 text-[11px] font-medium">{l}</span>
                   ))}
                 </div>
               </PanelSection>
@@ -190,11 +190,11 @@ export function SummaryPanel() {
                           <Info className="h-3 w-3 text-info mt-0.5 shrink-0" />
                         )}
                         <div className="min-w-0">
-                          <span className={`text-[11px] ${isDone ? "text-success" : "text-info"}`}>
+                          <span className={`text-xs font-medium ${isDone ? "text-success" : "text-info"}`}>
                             {step.num}. {step.label}
                           </span>
                           {!isDone && missing.length > 0 && (
-                            <p className="text-[9px] text-muted-foreground truncate">
+                            <p className="text-[11px] text-muted-foreground/90 truncate">
                               {missing[0]}
                               {missing.length > 1 && ` (+${missing.length - 1})`}
                             </p>
@@ -227,17 +227,17 @@ export function SummaryPanel() {
                     </div>
                     <div className="grid grid-cols-3 gap-2 mt-1.5 text-center">
                       <div>
-                        <p className="text-[9px] uppercase text-muted-foreground">Ataque</p>
+                        <p className="text-[11px] uppercase text-muted-foreground font-semibold">Ataque</p>
                         <p className="text-sm font-bold text-primary">
                           {atk.attackBonus >= 0 ? "+" : ""}{atk.attackBonus}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[9px] uppercase text-muted-foreground">Dano</p>
+                        <p className="text-[11px] uppercase text-muted-foreground font-semibold">Dano</p>
                         <p className="text-xs font-medium">{atk.damage.split(" (")[0]}</p>
                       </div>
                       <div>
-                        <p className="text-[9px] uppercase text-muted-foreground">Alcance</p>
+                        <p className="text-[11px] uppercase text-muted-foreground font-semibold">Alcance</p>
                         <p className="text-xs text-muted-foreground">{atk.range}</p>
                       </div>
                     </div>
@@ -255,9 +255,9 @@ export function SummaryPanel() {
                   {char.features.slice(0, 10).map((f, i) => (
                     <Tooltip key={`${f.sourceId}-${f.name}-${i}`}>
                       <TooltipTrigger asChild>
-                        <div className="text-[11px] py-0.5 cursor-help">
+                        <div className="text-xs py-0.5 cursor-help">
                           <span className="font-medium">{f.name}</span>
-                          <span className="text-[9px] text-muted-foreground ml-1">
+                          <span className="text-[11px] text-muted-foreground ml-1">
                             ({f.sourceType})
                           </span>
                         </div>
@@ -268,7 +268,7 @@ export function SummaryPanel() {
                     </Tooltip>
                   ))}
                   {char.features.length > 10 && (
-                    <p className="text-[10px] text-muted-foreground">+{char.features.length - 10} mais</p>
+                    <p className="text-[11px] text-muted-foreground">+{char.features.length - 10} mais</p>
                   )}
                 </div>
               </PanelSection>
@@ -281,15 +281,15 @@ export function SummaryPanel() {
               {/* Spell stats */}
               <div className="grid grid-cols-3 gap-1.5">
                 <div className="rounded-lg border bg-secondary/30 p-2 text-center">
-                  <p className="text-[9px] uppercase text-muted-foreground">CD</p>
+                  <p className="text-[11px] uppercase text-muted-foreground font-semibold">CD</p>
                   <p className="text-lg font-bold">{char.spells.spellSaveDC}</p>
                 </div>
                 <div className="rounded-lg border bg-secondary/30 p-2 text-center">
-                  <p className="text-[9px] uppercase text-muted-foreground">Ataque</p>
+                  <p className="text-[11px] uppercase text-muted-foreground font-semibold">Ataque</p>
                   <p className="text-lg font-bold">+{char.spells.spellAttackBonus}</p>
                 </div>
                 <div className="rounded-lg border bg-secondary/30 p-2 text-center">
-                  <p className="text-[9px] uppercase text-muted-foreground">Atributo</p>
+                  <p className="text-[11px] uppercase text-muted-foreground font-semibold">Atributo</p>
                   <p className="text-sm font-bold">{cls?.spellcasting?.ability?.substring(0, 3) ?? "—"}</p>
                 </div>
               </div>
@@ -300,7 +300,7 @@ export function SummaryPanel() {
                   <div className="flex flex-wrap gap-1.5">
                     {char.spells.slots.map((count, i) => count > 0 && (
                       <div key={i} className="rounded border bg-secondary/30 px-2 py-1 text-center min-w-[40px]">
-                        <p className="text-[8px] uppercase text-muted-foreground">{i + 1}º</p>
+                        <p className="text-[11px] uppercase text-muted-foreground font-semibold">{i + 1}º</p>
                         <p className="text-sm font-bold">{count}</p>
                       </div>
                     ))}
@@ -315,7 +315,7 @@ export function SummaryPanel() {
                     {char.spells.cantrips.map((id) => {
                       const sp = spellsData.find((s) => s.id === id);
                       return (
-                        <span key={id} className="rounded bg-secondary px-1.5 py-0.5 text-[10px]">
+                        <span key={id} className="rounded bg-secondary px-1.5 py-0.5 text-[11px]">
                           {sp?.name ?? id}
                         </span>
                       );
@@ -333,15 +333,15 @@ export function SummaryPanel() {
                       return (
                         <Tooltip key={id}>
                           <TooltipTrigger asChild>
-                            <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] cursor-help">
+                            <span className="rounded bg-secondary px-1.5 py-0.5 text-[11px] font-medium cursor-help">
                               {sp?.name ?? id}
                             </span>
                           </TooltipTrigger>
                           {sp && (
                             <TooltipContent side="left" className="max-w-[250px]">
                               <p className="font-medium text-xs">{sp.name}</p>
-                              <p className="text-[10px] text-muted-foreground">{sp.school} • {sp.level === 0 ? "Truque" : `${sp.level}º Círculo`}</p>
-                              <p className="text-[10px] mt-1">{sp.description.substring(0, 120)}...</p>
+                              <p className="text-[11px] text-muted-foreground">{sp.school} • {sp.level === 0 ? "Truque" : `${sp.level}º Círculo`}</p>
+                              <p className="text-[11px] mt-1 leading-relaxed">{sp.description.substring(0, 120)}...</p>
                             </TooltipContent>
                           )}
                         </Tooltip>
@@ -415,7 +415,7 @@ export function SummaryPanel() {
 
             {/* Weight */}
             {false && char.inventory.length > 0 && (
-              <div className="text-[10px] text-muted-foreground text-right">
+              <div className="text-[11px] text-muted-foreground text-right">
                 Peso total: {char.inventory.reduce((sum, e) => {
                   const item = itemsById[e.itemId];
                   return sum + (item?.weight ?? 0) * e.quantity;
@@ -432,7 +432,7 @@ export function SummaryPanel() {
 function StatMini({ label, value }: { label: string; value: string }) {
   return (
     <div className="text-center py-1.5 border-r last:border-r-0">
-      <p className="text-[8px] uppercase text-muted-foreground font-semibold tracking-wider">{label}</p>
+      <p className="text-[11px] uppercase text-muted-foreground font-semibold tracking-wider">{label}</p>
       <p className="text-sm font-bold">{value}</p>
     </div>
   );
@@ -440,7 +440,7 @@ function StatMini({ label, value }: { label: string; value: string }) {
 
 function MiniTag({ children }: { children: React.ReactNode }) {
   return (
-    <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-medium">
+    <span className="rounded bg-secondary px-1.5 py-0.5 text-[11px] font-medium">
       {children}
     </span>
   );
@@ -449,7 +449,7 @@ function MiniTag({ children }: { children: React.ReactNode }) {
 function PanelSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-[9px] uppercase text-muted-foreground font-semibold tracking-wider mb-1.5">
+      <p className="text-[11px] uppercase text-muted-foreground font-semibold tracking-wider mb-1.5">
         {title}
       </p>
       {children}
