@@ -36,7 +36,9 @@ function makeCharacter(overrides: Partial<CharacterState> = {}): CharacterState 
     gold: { gp: 0 }, attacks: [],
     appliedFeats: [],
     featAbilityBonuses: { ...ZERO_BONUSES },
-    flags: {}, classFeatureChoices: {}, expertiseSkills: [],
+    flags: {}, classFeatureChoices: {},
+    choiceSelections: { skills: [], languages: [], tools: [], instruments: [], cantrips: [], spells: [], raceChoice: null },
+    expertiseSkills: [],
     skillMods: {},
     saveMods: {} as any, warnings: [],
     leveling: {

@@ -8,9 +8,6 @@ import { items, type Item } from "./items";
 
 // ── Spell indexes ──
 
-/** Spells grouped by class name */
-export const spellsByClassName: Record<string, SpellData[]> = {};
-
 /** Spells grouped by class id (canonical for app state) */
 export const spellsByClassId: Record<string, SpellData[]> = {};
 
@@ -22,14 +19,11 @@ export const spellsBySchool: Record<string, SpellData[]> = {};
 
 // Build spell indexes
 
-const classNameToId: Record<string, string> = Object.fromEntries(
-  classes.map((c) => [c.name, c.id])
-);
+const classNameToId: Record<string, string> = Object.fromEntries(classes.map((c) => [c.name, c.id]));
 
 for (const spell of spells) {
   // By class
   for (const cls of spell.classes) {
-    (spellsByClassName[cls] ??= []).push(spell);
     const classId = classNameToId[cls];
     if (classId) (spellsByClassId[classId] ??= []).push(spell);
   }
@@ -39,16 +33,7 @@ for (const spell of spells) {
   (spellsBySchool[spell.school] ??= []).push(spell);
 }
 
-/** Get spells available to a class, optionally filtered by max level */
-export function getSpellsForClass(className: string, maxLevel?: number): SpellData[] {
-  const classSpells = spellsByClassName[className] ?? [];
-  if (maxLevel === undefined) return classSpells;
-  return classSpells.filter((s) => s.level <= maxLevel);
-}
-
-
-
- /** Get spells available to a class id (canonical), optionally filtered by max level */
+/** Get spells available to a class id (canonical), optionally filtered by max level */
 export function getSpellsForClassId(classId: string, maxLevel?: number): SpellData[] {
   const classSpells = spellsByClassId[classId] ?? [];
   if (maxLevel === undefined) return classSpells;

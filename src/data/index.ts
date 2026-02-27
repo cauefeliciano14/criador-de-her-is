@@ -15,7 +15,7 @@ export { sources, sourcesById, type Source } from "./sources";
 
 // ── Pre-built indexes for fast filtering ──
 export {
-  spellsByClassName, spellsByLevel, spellsBySchool, getSpellsForClass,
+  spellsByClassId, spellsByLevel, spellsBySchool, getSpellsForClassId,
   itemsByType, itemsByCategory, itemCategories, itemTypes,
 } from "./indexes";
 
