@@ -48,4 +48,28 @@ describe("choice engine", () => {
     expect(reqFighter.cantrips.requiredCount).toBe(0);
     expect(reqFighter.cantrips.selectedIds).toEqual([]);
   });
+
+  it("quando ferramentas são obrigatórias o bucket tools oferece opções válidas", () => {
+    const char = makeCharacter({
+      class: "ladino",
+      race: "humano",
+      background: "criminoso",
+      level: 1,
+      abilityGeneration: { ...makeCharacter().abilityGeneration, method: "standard", confirmed: true },
+      choiceSelections: { classSkills: [], languages: [], tools: [], instruments: [], cantrips: [], spells: [], raceChoice: null, classFeats: [] },
+    });
+
+    const req = getChoicesRequirements(char);
+    expect(req.buckets.tools.requiredCount).toBeGreaterThan(0);
+    expect(req.buckets.tools.options.length).toBeGreaterThan(0);
+    expect(req.buckets.tools.options.every((option) => option.id.startsWith("jogo-"))).toBe(true);
+
+    const picked = req.buckets.tools.options.slice(0, req.buckets.tools.requiredCount).map((option) => option.id);
+    const completed = getChoicesRequirements({
+      ...char,
+      choiceSelections: { ...char.choiceSelections, tools: picked },
+    });
+
+    expect(completed.buckets.tools.pendingCount).toBe(0);
+  });
 });
