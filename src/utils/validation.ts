@@ -80,7 +80,7 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
   }
 
   // Race choices (e.g., Draconato ancestralidade)
-  if (char.race === "draconato" && !char.raceChoices.draconato?.ancestralidade) {
+  if (char.race === "draconato" && !char.raceChoices.dragonbornHeritage) {
     missing.push({
       id: "draconato-ancestralidade",
       label: "Ancestralidade dracônica não escolhida",

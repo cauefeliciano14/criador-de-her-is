@@ -439,7 +439,7 @@ export const races: RaceData[] = [
           name: "Gnomo das Rochas",
           description: "Gnomos artesãos, proficientes em ferramentas e engenhocas.",
           effects: {
-            proficiencies: { tools: ["Ferramentas de Funileiro"] },
+            proficiencies: { skills: [], tools: ["Ferramentas de Funileiro"], weapons: [], armor: [] },
             traits: [{ name: "Engenhocas", description: "Pode criar engenhocas pequenas com materiais simples." }],
           },
           source: PHB2024,
