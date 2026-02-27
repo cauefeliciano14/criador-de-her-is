@@ -12,7 +12,7 @@ describe("choice engine", () => {
       abilityGeneration: { ...makeCharacter().abilityGeneration, method: "standard", confirmed: true },
       classEquipmentChoice: "A",
       classSkillChoices: ["atletismo", "intuicao"],
-      choiceSelections: { skills: ["atletismo", "intuicao"], languages: [], tools: [], instruments: [], cantrips: [], spells: [], raceChoice: null },
+      choiceSelections: { classSkills: ["atletismo", "intuicao"], languages: [], tools: [], instruments: [], cantrips: [], spells: [], raceChoice: null, classFeats: [] },
     });
     const req = getChoicesRequirements(char);
     expect(req.needsStep).toBe(false);
@@ -26,7 +26,7 @@ describe("choice engine", () => {
       level: 2,
       abilityGeneration: { ...makeCharacter().abilityGeneration, method: "standard", confirmed: true },
       abilityScores: { str: 8, dex: 14, con: 13, int: 16, wis: 10, cha: 10 },
-      choiceSelections: { skills: [], languages: [], tools: [], instruments: [], cantrips: ["rajada-de-fogo"], spells: ["escudo-arcano"], raceChoice: null },
+      choiceSelections: { classSkills: [], languages: [], tools: [], instruments: [], cantrips: ["rajada-de-fogo"], spells: ["escudo-arcano"], raceChoice: null, classFeats: [] },
     });
     const req = getChoicesRequirements(char);
     expect(req.cantrips.requiredCount).toBeGreaterThan(0);
@@ -38,7 +38,7 @@ describe("choice engine", () => {
     const wizard = makeCharacter({
       class: "mago",
       level: 1,
-      choiceSelections: { skills: [], languages: [], tools: [], instruments: [], cantrips: ["rajada-de-fogo"], spells: ["escudo-arcano"], raceChoice: null },
+      choiceSelections: { classSkills: [], languages: [], tools: [], instruments: [], cantrips: ["rajada-de-fogo"], spells: ["escudo-arcano"], raceChoice: null, classFeats: [] },
     });
     const reqWizard = getChoicesRequirements(wizard);
     expect(reqWizard.cantrips.selectedIds).toContain("rajada-de-fogo");

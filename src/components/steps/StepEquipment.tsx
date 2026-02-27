@@ -4,6 +4,7 @@ import { items, itemsById, type Item, type WeaponProperties, type ArmorPropertie
 import { classes } from "@/data/classes";
 import { backgrounds } from "@/data/backgrounds";
 import { calcArmorClass, buildAttacks, isArmorProficient } from "@/utils/equipment";
+import { getChoicesRequirements } from "@/utils/choices";
 import { useEffect, useMemo, useState } from "react";
 import { Search, Plus, Minus, Shield, Swords, AlertTriangle, Package, Coins, Trash2, Check, BookOpen } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -31,6 +32,8 @@ export function StepEquipment() {
   const isSpellcaster = cls?.spellcasting != null;
   const hasEquipChoices = cls && cls.equipmentChoices.length > 0;
   const equipChoicePending = hasEquipChoices && !char.classEquipmentChoice;
+  const requirements = useMemo(() => getChoicesRequirements(char), [char]);
+  const pendingChoicesCount = Object.values(requirements.buckets).reduce((sum, bucket) => sum + bucket.pendingCount, 0);
 
   // ── Catalog state ──
   const [search, setSearch] = useState("");
@@ -150,7 +153,10 @@ export function StepEquipment() {
   useEffect(() => {
     const missing: string[] = [];
     if (equipChoicePending) {
-      missing.push("Escolha seu equipamento inicial (A ou B)");
+      missing.push("Escolha seu equipamento inicial");
+    }
+    if (pendingChoicesCount > 0) {
+      missing.push(`Resolva escolhas pendentes (${pendingChoicesCount})`);
     }
     setMissing("equipment", missing);
     if (missing.length === 0) {
@@ -158,7 +164,7 @@ export function StepEquipment() {
     } else {
       uncompleteStep("equipment");
     }
-  }, [char.classEquipmentChoice, hasEquipChoices]);
+  }, [char.classEquipmentChoice, hasEquipChoices, pendingChoicesCount]);
 
   // ── Filtered catalog items ──
   const filteredItems = useMemo(() => {
@@ -249,6 +255,18 @@ export function StepEquipment() {
               Escolha obrigatória antes de avançar.
             </div>
           )}
+        </section>
+      )}
+
+
+      {pendingChoicesCount > 0 && (
+        <section className="space-y-2 rounded-lg border bg-card p-3">
+          <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">Pendências obrigatórias</h3>
+          <ul className="text-sm space-y-1">
+            {Object.entries(requirements.buckets).filter(([, bucket]) => bucket.pendingCount > 0).map(([id, bucket]) => (
+              <li key={id} className="text-warning">• {id}: {bucket.pendingCount} pendente(s)</li>
+            ))}
+          </ul>
         </section>
       )}
 
