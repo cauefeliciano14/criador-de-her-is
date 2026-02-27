@@ -32,6 +32,7 @@ export function StepRace() {
   const raceLanguageRequired = raceLanguageSource ? Number(raceLanguageSource.split(":").pop()) || 0 : 0;
   const raceChoiceSource = requirements.buckets.raceChoice.sources[0] ?? "";
   const raceChoiceKey = raceChoiceSource.split(":").pop() ?? "";
+  const hasRaceChoiceSource = raceChoiceSource.length > 0;
 
   // === Compute combined bonuses from fixed race + subrace + choices ===
   const computeRacialBonuses = useCallback(
@@ -536,7 +537,7 @@ export function StepRace() {
               )}
 
               {/* Race Choice */}
-              {selectedRace.raceChoice && (
+              {selectedRace.raceChoice && hasRaceChoiceSource && (
                 <Section title={selectedRace.raceChoice.label}>
                   {requirements.buckets.raceChoice.pendingCount > 0 && selectedRace.raceChoice.required && (
                     <div className="flex items-center gap-2 mb-3 text-info">
