@@ -21,6 +21,17 @@ const TYPE_LABELS: Record<string, string> = {
   other: "Outros",
 };
 
+const PENDING_LABELS: Record<string, string> = {
+  classSkills: "Perícias de Classe",
+  languages: "Idiomas",
+  tools: "Ferramentas",
+  instruments: "Instrumentos",
+  cantrips: "Truques",
+  spells: "Magias",
+  raceChoice: "Escolha Racial",
+  classFeats: "Talento de Classe",
+};
+
 export function StepEquipment() {
   const char = useCharacterStore();
   const patchCharacter = useCharacterStore((s) => s.patchCharacter);
@@ -32,7 +43,8 @@ export function StepEquipment() {
   const isSpellcaster = cls?.spellcasting != null;
   const hasEquipChoices = cls && cls.equipmentChoices.length > 0;
   const equipChoicePending = hasEquipChoices && !char.classEquipmentChoice;
-  const requirements = useMemo(() => getChoicesRequirements(char), [char]);
+  const datasetsVersion = `${classes.length}:${backgrounds.length}`;
+  const requirements = useMemo(() => getChoicesRequirements(char), [char.class, char.race, char.background, char.level, char.choiceSelections, datasetsVersion]);
   const pendingChoicesCount = Object.values(requirements.buckets).reduce((sum, bucket) => sum + bucket.pendingCount, 0);
 
   // ── Catalog state ──
@@ -264,9 +276,43 @@ export function StepEquipment() {
           <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">Pendências obrigatórias</h3>
           <ul className="text-sm space-y-1">
             {Object.entries(requirements.buckets).filter(([, bucket]) => bucket.pendingCount > 0).map(([id, bucket]) => (
-              <li key={id} className="text-warning">• {id}: {bucket.pendingCount} pendente(s)</li>
+              <li key={id} className="text-warning">• {PENDING_LABELS[id] ?? id}: {bucket.pendingCount} pendente(s)</li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {(requirements.buckets.classSkills.pendingCount > 0 || requirements.buckets.languages.pendingCount > 0 || requirements.buckets.instruments.pendingCount > 0 || requirements.buckets.raceChoice.pendingCount > 0) && (
+        <section className="space-y-3 rounded-lg border bg-card p-3">
+          <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">Resolver pendências</h3>
+          {requirements.buckets.classSkills.pendingCount > 0 && (
+            <ChoiceGrid title="Perícias" options={requirements.buckets.classSkills.options} selected={char.choiceSelections.classSkills} onToggle={(id) => {
+              const cur = new Set(char.choiceSelections.classSkills ?? []);
+              if (cur.has(id)) cur.delete(id); else if (cur.size < requirements.buckets.classSkills.requiredCount) cur.add(id);
+              patchCharacter({ choiceSelections: { ...char.choiceSelections, classSkills: [...cur] }, classSkillChoices: [...cur] });
+            }} />
+          )}
+          {requirements.buckets.languages.pendingCount > 0 && (
+            <ChoiceGrid title="Idiomas" options={requirements.buckets.languages.options} selected={char.choiceSelections.languages} onToggle={(id) => {
+              const cur = new Set(char.choiceSelections.languages ?? []);
+              if (cur.has(id)) cur.delete(id); else if (cur.size < requirements.buckets.languages.requiredCount) cur.add(id);
+              patchCharacter({ choiceSelections: { ...char.choiceSelections, languages: [...cur] } });
+            }} />
+          )}
+          {requirements.buckets.instruments.pendingCount > 0 && (
+            <ChoiceGrid title="Instrumentos" options={requirements.buckets.instruments.options} selected={char.choiceSelections.instruments} onToggle={(id) => {
+              const cur = new Set(char.choiceSelections.instruments ?? []);
+              if (cur.has(id)) cur.delete(id); else if (cur.size < requirements.buckets.instruments.requiredCount) cur.add(id);
+              patchCharacter({ choiceSelections: { ...char.choiceSelections, instruments: [...cur] } });
+            }} />
+          )}
+          {requirements.buckets.raceChoice.pendingCount > 0 && (
+            <ChoiceGrid title="Escolha Racial" options={requirements.buckets.raceChoice.options} selected={requirements.buckets.raceChoice.selectedIds} onToggle={(id) => {
+              const source = requirements.buckets.raceChoice.sources[0] ?? "";
+              const key = source.split(":").pop() ?? "raceChoice";
+              patchCharacter({ raceChoices: { ...char.raceChoices, [key]: id } });
+            }} />
+          )}
         </section>
       )}
 
@@ -626,4 +672,9 @@ function CatalogCard({ item, onAdd }: { item: Item; onAdd: () => void }) {
       </div>
     </div>
   );
+}
+
+
+function ChoiceGrid({ title, options, selected, onToggle }: { title: string; options: { id: string; name: string }[]; selected: string[]; onToggle: (id: string) => void }) {
+  return <div className="space-y-2"><p className="text-sm font-medium">{title}</p><div className="grid grid-cols-2 gap-2">{options.map((o) => <button key={o.id} onClick={() => onToggle(o.id)} className={`rounded border px-2 py-1 text-sm text-left ${(selected ?? []).includes(o.id) ? "border-primary bg-primary/10" : "hover:bg-secondary"}`}>{o.name}</button>)}</div></div>;
 }

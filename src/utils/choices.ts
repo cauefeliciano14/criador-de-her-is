@@ -2,13 +2,12 @@ import { classes } from "@/data/classes";
 import { backgrounds } from "@/data/backgrounds";
 import { races } from "@/data/races";
 import { languages as allLanguages } from "@/data/languages";
-import { musicalInstruments } from "@/data/musicalInstruments";
+import { instruments } from "@/data/instruments";
 import { skills } from "@/data/skills";
 import { feats } from "@/data/feats";
 import { spellsByClassId } from "@/data/indexes";
 import type { CharacterState } from "@/state/characterStore";
 import { calcAbilityMod, getFinalAbilityScores, type AbilityKey } from "@/utils/calculations";
-import { slugifyId } from "@/utils/slugifyId";
 
 export interface ChoiceOption { id: string; name: string; }
 export interface ChoiceBucket {
@@ -30,7 +29,6 @@ export interface ChoicesRequirements {
     raceChoice: ChoiceBucket;
     classFeats: ChoiceBucket;
   };
-  // legacy aliases
   skills: ChoiceBucket;
 }
 
@@ -41,22 +39,31 @@ const LANGUAGE_RX = /(idioma|idiomas)/i;
 const INSTRUMENT_RX = /(instrumento|instrumentos)/i;
 const TOOL_RX = /(ferramenta|ferramentas|jogo|jogos)/i;
 const NUMBER_WORDS: Record<string, number> = { um: 1, uma: 1, dois: 2, duas: 2, três: 3, tres: 3, quatro: 4, cinco: 5 };
+const CANONICAL_CLASS_SKILL_COUNTS: Record<string, number> = {
+  barbaro: 2, bardo: 3, bruxo: 2, clerigo: 2, druida: 2, feiticeiro: 2, guardiao: 3, guerreiro: 2, ladino: 4, mago: 2, monge: 2, paladino: 2,
+};
+const RACE_CHOICE_KEY_BY_KIND: Record<string, string> = {
+  dragonAncestry: "draconicAncestry",
+  elfLineage: "elvenLineage",
+  gnomeLineage: "gnomishLineage",
+  giantAncestry: "giantAncestry",
+  infernalLegacy: "infernalLegacy",
+  sizeChoice: "height",
+};
 
 const normalize = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const countChoicesFromText = (text: string) => NUMBER_WORDS[(text.match(/\b(um|uma|dois|duas|três|tres|quatro|cinco)\b/i)?.[1] ?? "um").toLowerCase()] ?? 1;
+const uniq = (options: ChoiceOption[]) => [...new Map(options.map((o) => [o.id, o])).values()];
 
 function makeBucket(requiredCount: number, selectedIds: string[], options: ChoiceOption[], sources: string[]): ChoiceBucket {
-  const valid = new Set(options.map((o) => o.id));
+  const safeOptions = options ?? [];
+  const valid = new Set(safeOptions.map((o) => o.id));
   const capped = selectedIds.filter((id) => valid.has(id)).slice(0, requiredCount);
-  return { requiredCount, selectedIds: capped, options, pendingCount: Math.max(0, requiredCount - capped.length), sources };
+  return { requiredCount, selectedIds: capped, options: safeOptions, pendingCount: Math.max(0, requiredCount - capped.length), sources };
 }
 
 function reqCount(values: string[] | undefined, predicate: (v: string) => boolean): number {
   return (values ?? []).map(normalize).filter((v) => PLACEHOLDER_RX.test(v) && predicate(v)).reduce((sum, v) => sum + countChoicesFromText(v), 0);
-}
-
-function uniq(options: ChoiceOption[]) {
-  return [...new Map(options.map((o) => [o.id, o])).values()];
 }
 
 function resolveCasterSpellLimit(character: CharacterState, classId: string) {
@@ -89,26 +96,50 @@ export function getChoicesRequirements(character: CharacterState, datasets: Choi
   const currentRace = datasets.races.find((r) => r.id === character.race);
 
   const selections = character.choiceSelections ?? { classSkills: [], languages: [], tools: [], instruments: [], cantrips: [], spells: [], raceChoice: null, classFeats: [], skills: [] } as any;
-  const skillSel = selections.classSkills ?? selections.skills ?? [];
-
-  const knownLanguageIds = new Set((character.proficiencies.languages ?? []).filter((i) => !PLACEHOLDER_RX.test(i)).map((name) => allLanguages.find((l) => normalize(l.name) === normalize(name))?.id).filter(Boolean) as string[]);
-  const knownInstrumentIds = new Set((character.proficiencies.tools ?? []).filter((i) => !PLACEHOLDER_RX.test(i)).map((name) => musicalInstruments.find((l) => normalize(l.name) === normalize(name))?.id).filter(Boolean) as string[]);
-
   const spellData = character.class ? resolveCasterSpellLimit(character, character.class) : { cantrips: 0, spells: 0, options: [] as any[] };
-  const raceChoiceRequired = currentRace?.raceChoice?.required ? 1 : 0;
+
+  const classSkillRequired = currentClass ? (CANONICAL_CLASS_SKILL_COUNTS[currentClass.id] ?? currentClass.skillChoices.choose) : 0;
+  const classSkillOptions = uniq((currentClass?.skillChoices.from ?? []).map((name) => skills.find((s) => normalize(s.name) === normalize(name))).filter(Boolean).map((s) => ({ id: (s as any).id, name: (s as any).name })));
+
+  const raceLangReq = reqCount(currentRace?.languages, (v) => LANGUAGE_RX.test(v));
+  const bgLangReq = reqCount(currentBackground?.languages, (v) => LANGUAGE_RX.test(v));
+  const languageRequiredCount = raceLangReq + bgLangReq;
+  const fixedLanguageIds = new Set((currentRace?.languages ?? []).filter((l) => !PLACEHOLDER_RX.test(l)).map((name) => allLanguages.find((lang) => normalize(lang.name) === normalize(name))?.id).filter(Boolean) as string[]);
+  const languageOptions = uniq(allLanguages.filter((l) => !fixedLanguageIds.has(l.id)).map((l) => ({ id: l.id, name: l.name })));
+
+  const instrumentRequiredCount = (character.class === "bardo" ? 3 : 0)
+    + reqCount(currentBackground?.tools, (v) => INSTRUMENT_RX.test(v))
+    + reqCount(currentClass?.proficiencies.tools, (v) => INSTRUMENT_RX.test(v));
+
+  const raceChoiceData = currentRace?.raceChoice;
+  const raceChoiceKey = raceChoiceData?.kind ? (RACE_CHOICE_KEY_BY_KIND[raceChoiceData.kind] ?? raceChoiceData.kind) : "";
+  const raceChoiceRequired = raceChoiceData?.required && currentRace?.id !== "aasimar" ? 1 : 0;
+  const raceChoiceSelected = raceChoiceKey ? character.raceChoices?.[raceChoiceKey] : null;
   const classFeatRequired = character.class === "guerreiro" ? 1 : (character.class === "guardiao" && character.level >= 2 ? 1 : 0);
   const classFeatOptions = feats.filter((f) => ["combate-com-armas-grandes"].includes(f.id)).map((f) => ({ id: f.id, name: f.name }));
 
   const buckets = {
-    classSkills: makeBucket(currentClass ? currentClass.skillChoices.choose : 0, skillSel, uniq((currentClass?.skillChoices.from ?? []).map((name) => skills.find((s) => s.name === name)).filter(Boolean).map((s) => ({ id: (s as any).id, name: (s as any).name }))), currentClass ? [`class:${currentClass.id}`] : []),
-    languages: makeBucket(reqCount(character.proficiencies.languages, (v) => LANGUAGE_RX.test(v)) + reqCount(currentBackground?.languages, (v) => LANGUAGE_RX.test(v)) + reqCount(currentRace?.languages, (v) => LANGUAGE_RX.test(v)), selections.languages ?? [], uniq(allLanguages.filter((l) => !knownLanguageIds.has(l.id)).map((l) => ({ id: l.id, name: l.name }))), []),
-    tools: makeBucket(reqCount(character.proficiencies.tools, (v) => TOOL_RX.test(v) && !INSTRUMENT_RX.test(v)) + reqCount(currentBackground?.tools, (v) => TOOL_RX.test(v) && !INSTRUMENT_RX.test(v)) + reqCount(currentClass?.proficiencies.tools, (v) => TOOL_RX.test(v) && !INSTRUMENT_RX.test(v)), selections.tools ?? [], uniq((character.proficiencies.tools ?? []).filter((v) => !PLACEHOLDER_RX.test(v) && !INSTRUMENT_RX.test(v)).map((name) => ({ id: slugifyId(name), name }))), []),
-    instruments: makeBucket(reqCount(character.proficiencies.tools, (v) => INSTRUMENT_RX.test(v)) + reqCount(currentBackground?.tools, (v) => INSTRUMENT_RX.test(v)) + reqCount(currentClass?.proficiencies.tools, (v) => INSTRUMENT_RX.test(v)), selections.instruments ?? [], uniq(musicalInstruments.filter((i) => !knownInstrumentIds.has(i.id)).map((i) => ({ id: i.id, name: i.name }))), []),
+    classSkills: makeBucket(classSkillRequired, selections.classSkills ?? selections.skills ?? character.classSkillChoices ?? [], classSkillOptions, currentClass ? [`class:${currentClass.id}`] : []),
+    languages: makeBucket(languageRequiredCount, selections.languages ?? [], languageOptions, [
+      ...(raceLangReq > 0 && currentRace ? [`race:${currentRace.id}:${raceLangReq}`] : []),
+      ...(bgLangReq > 0 && currentBackground ? [`background:${currentBackground.id}:${bgLangReq}`] : []),
+    ]),
+    tools: makeBucket(reqCount(currentBackground?.tools, (v) => TOOL_RX.test(v) && !INSTRUMENT_RX.test(v)) + reqCount(currentClass?.proficiencies.tools, (v) => TOOL_RX.test(v) && !INSTRUMENT_RX.test(v)), selections.tools ?? [], [], []),
+    instruments: makeBucket(instrumentRequiredCount, selections.instruments ?? [], uniq(instruments.map((i) => ({ id: i.id, name: i.name }))), [
+      ...(character.class === "bardo" ? ["class:bardo:3"] : []),
+      ...(reqCount(currentBackground?.tools, (v) => INSTRUMENT_RX.test(v)) > 0 && currentBackground ? [`background:${currentBackground.id}:${reqCount(currentBackground?.tools, (v) => INSTRUMENT_RX.test(v))}`] : []),
+    ]),
     cantrips: makeBucket(spellData.cantrips, selections.cantrips ?? [], uniq(spellData.options.filter((s) => s.level === 0).map((s) => ({ id: s.id, name: s.name }))), currentClass?.spellcasting ? [`class:${currentClass.id}:spellcasting`] : []),
     spells: makeBucket(spellData.spells, selections.spells ?? [], uniq(spellData.options.filter((s) => s.level >= 1).map((s) => ({ id: s.id, name: s.name }))), currentClass?.spellcasting ? [`class:${currentClass.id}:spellcasting`] : []),
-    raceChoice: makeBucket(raceChoiceRequired, selections.raceChoice ? [selections.raceChoice] : [], uniq(currentRace?.raceChoice?.options?.map((o) => ({ id: o.id, name: o.name })) ?? []), currentRace?.raceChoice ? [`race:${currentRace.id}`] : []),
+    raceChoice: makeBucket(raceChoiceRequired, raceChoiceSelected ? [raceChoiceSelected] : [], uniq((raceChoiceData?.options ?? []).map((o) => ({ id: o.id, name: o.name }))), raceChoiceRequired > 0 && currentRace ? [`race:${currentRace.id}:${raceChoiceKey}`] : []),
     classFeats: makeBucket(classFeatRequired, selections.classFeats ?? [], classFeatOptions, classFeatRequired ? [`class:${character.class}:fighting-style`] : []),
   };
+
+  if (import.meta.env.DEV) {
+    for (const [bucketName, bucket] of Object.entries(buckets)) {
+      if (bucket.requiredCount > 0 && bucket.options.length === 0) console.warn(`[DEV AUDIT][choices] WARNING bucket sem opções: ${bucketName}`, bucket.sources);
+    }
+  }
 
   const needsStep = Object.values(buckets).some((b) => b.pendingCount > 0);
   return { needsStep, buckets, skills: buckets.classSkills };
