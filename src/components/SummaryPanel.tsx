@@ -14,7 +14,7 @@ import { backgrounds } from "@/data/backgrounds";
 import { spells as spellsData } from "@/data/spells";
 import { itemsById } from "@/data/items";
 import {
-  ABILITY_SHORT, ABILITIES, calcAbilityMod, getFinalAbilityScores,
+  ABILITY_LABELS, ABILITY_SHORT, ABILITIES, calcAbilityMod, getFinalAbilityScores,
   ALL_SKILLS, type AbilityKey,
 } from "@/utils/calculations";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -192,7 +192,7 @@ const StatsTab = memo(function StatsTab({
 }: {
   finalScores: Record<AbilityKey, number>;
   proficiencyBonus: number;
-  savingThrows: AbilityKey[];
+  savingThrows: string[];
   skills: string[];
   languages: string[];
   visibleSteps: StepDef[];
@@ -208,7 +208,9 @@ const StatsTab = memo(function StatsTab({
   const savesData = useMemo(
     () => ABILITIES.map((a) => {
       const mod = calcAbilityMod(finalScores[a]);
-      const prof = savingThrows.includes(a);
+      const prof = savingThrows.some(
+        (st) => st.toLowerCase().startsWith(ABILITY_LABELS[a].toLowerCase().substring(0, 3))
+      );
       const total = mod + (prof ? proficiencyBonus : 0);
       return { a, prof, total };
     }),
