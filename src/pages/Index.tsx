@@ -58,18 +58,25 @@ function BuilderContent() {
   const requiredMissing = useBuilderStore((s) => s.requiredMissing);
   const nextStep = useBuilderStore((s) => s.nextStep);
   const prevStep = useBuilderStore((s) => s.prevStep);
+  const goToStep = useBuilderStore((s) => s.goToStep);
   const getVisibleSteps = useBuilderStore((s) => s.getVisibleSteps);
 
   const visibleSteps = getVisibleSteps();
 
-  const currentIdx = visibleSteps.findIndex((s) => s.id === currentStep);
+  // Guard against stale persisted currentStep not in STEP_COMPONENTS
+  const validStep = currentStep in STEP_COMPONENTS ? currentStep : "class";
+  if (validStep !== currentStep) {
+    goToStep(validStep as StepId);
+  }
+
+  const currentIdx = visibleSteps.findIndex((s) => s.id === validStep);
   const isFirst = currentIdx <= 0;
   const isLast = currentIdx >= visibleSteps.length - 1;
-  const currentMissing = requiredMissing[currentStep] ?? [];
-  const isCurrentComplete = completedSteps.includes(currentStep);
+  const currentMissing = requiredMissing[validStep] ?? [];
+  const isCurrentComplete = completedSteps.includes(validStep);
   const canNext = isCurrentComplete && currentMissing.length === 0;
 
-  const StepComponent = STEP_COMPONENTS[currentStep];
+  const StepComponent = STEP_COMPONENTS[validStep];
 
   // Hook for Enter key to advance
   useEnterToNextStep({ canGoNext: canNext && !isLast, goNext: nextStep });
@@ -90,7 +97,7 @@ function BuilderContent() {
         headerTitle.focus();
       }
     }, 300); // Wait for scroll animation
-  }, [currentStep]);
+  }, [currentStep, validStep]);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -100,7 +107,7 @@ function BuilderContent() {
         <SidebarSteps />
         <div className="flex flex-1 flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto" data-step-scroll="true">
-            <StepHeader stepId={currentStep} canNext={canNext} currentMissing={currentMissing} />
+            <StepHeader stepId={validStep} canNext={canNext} currentMissing={currentMissing} />
             <Suspense fallback={<StepFallback />}>
               <StepComponent />
             </Suspense>
