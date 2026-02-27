@@ -48,4 +48,40 @@ describe("choice engine", () => {
     expect(reqFighter.cantrips.requiredCount).toBe(0);
     expect(reqFighter.cantrips.selectedIds).toEqual([]);
   });
+
+  it("escolha racial obrigatória usa chave canônica e zera pendência", () => {
+    const base = makeCharacter({
+      race: "draconato",
+      choiceSelections: { classSkills: [], languages: [], tools: [], instruments: [], cantrips: [], spells: [], raceChoice: null, classFeats: [] },
+      raceChoices: {},
+    });
+
+    const reqPending = getChoicesRequirements(base);
+    expect(reqPending.buckets.raceChoice.requiredCount).toBe(1);
+    expect(reqPending.buckets.raceChoice.pendingCount).toBe(1);
+    expect(reqPending.buckets.raceChoice.sources[0]).toContain(":draconicAncestry");
+
+    const selected = makeCharacter({
+      ...base,
+      choiceSelections: { ...base.choiceSelections, raceChoice: "azul" },
+      raceChoices: { draconicAncestry: "azul" },
+    });
+
+    const reqSelected = getChoicesRequirements(selected);
+    expect(reqSelected.buckets.raceChoice.selectedIds).toEqual(["azul"]);
+    expect(reqSelected.buckets.raceChoice.pendingCount).toBe(0);
+  });
+
+  it("escolha em raceChoices.raceChoice não satisfaz requisito canônico", () => {
+    const char = makeCharacter({
+      race: "draconato",
+      choiceSelections: { classSkills: [], languages: [], tools: [], instruments: [], cantrips: [], spells: [], raceChoice: "azul", classFeats: [] },
+      raceChoices: { raceChoice: "azul" } as any,
+    });
+
+    const req = getChoicesRequirements(char);
+    expect(req.buckets.raceChoice.pendingCount).toBe(1);
+    expect(req.buckets.raceChoice.selectedIds).toEqual([]);
+  });
+
 });
