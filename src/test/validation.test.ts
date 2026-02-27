@@ -36,6 +36,47 @@ describe("validateCharacterCompleteness", () => {
     expect(criticalMissing.filter((m) => m.id === "bg-select")).toHaveLength(0);
   });
 
+  it("maps choices pending to equipment or choices step based on useChoicesStep", () => {
+    const charWithPendingChoices = makeCharacter({
+      name: "Pending Choices",
+      level: 1,
+      race: "humano",
+      class: "guerreiro",
+      background: "soldado",
+      abilityGeneration: {
+        method: "standard", rolls: null, rollResults: null, pointBuyRemaining: 0,
+        standardAssignments: { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 },
+        rollAssignments: { str: null, dex: null, con: null, int: null, wis: null, cha: null },
+        confirmed: true,
+      },
+      abilityScores: { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 },
+      classSkillChoices: ["Atletismo", "Intimidação"],
+      classEquipmentChoice: "A",
+      choiceSelections: {
+        classSkills: ["atletismo", "intimidacao"],
+        languages: [],
+        tools: [],
+        instruments: [],
+        cantrips: [],
+        spells: [],
+        raceChoice: null,
+        classFeats: [],
+      },
+    });
+
+    const withoutChoicesStep = validateCharacterCompleteness(charWithPendingChoices, false);
+    const withoutChoicesPending = withoutChoicesStep.missing.find((m) => m.id === "choices-pending");
+    expect(withoutChoicesPending).toBeDefined();
+    expect(withoutChoicesPending?.stepId).toBe("equipment");
+    expect(withoutChoicesPending?.stepNumber).toBe(5);
+
+    const withChoicesStep = validateCharacterCompleteness(charWithPendingChoices, true);
+    const withChoicesPending = withChoicesStep.missing.find((m) => m.id === "choices-pending");
+    expect(withChoicesPending).toBeDefined();
+    expect(withChoicesPending?.stepId).toBe("choices");
+    expect(withChoicesPending?.stepNumber).toBe(6);
+  });
+
   it("wizard missing cantrips/spells shows spell warnings", () => {
     const wizNoSpells = {
       ...WIZARD_ELF_L1,

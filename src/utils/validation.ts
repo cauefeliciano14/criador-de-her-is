@@ -21,8 +21,11 @@ export interface ValidationResult {
 }
 
 /**
- * Step mapping for the new wizard order:
- * 1: class, 2: origin, 3: race, 4: abilities, 5: equipment, 6: sheet
+ * Step mapping used in validation:
+ * - Default flow (useChoicesStep = false):
+ *   1: class, 2: origin, 3: race, 4: abilities, 5: equipment, 6: sheet
+ * - Flow with choices step (useChoicesStep = true):
+ *   1: class, 2: origin, 3: race, 4: abilities, 5: equipment, 6: choices, 7: sheet
  */
 
 export function validateCharacterCompleteness(char: CharacterState, useChoicesStep: boolean = false): ValidationResult {
@@ -32,6 +35,8 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
   const race = races.find((r) => r.id === char.race);
   const cls = classes.find((c) => c.id === char.class);
   const bg = backgrounds.find((b) => b.id === char.background);
+  const choicesStepId = useChoicesStep ? "choices" : "equipment";
+  const choicesStepNumber = useChoicesStep ? 6 : 5;
 
   // 1. Ability method
   if (char.level > 2) {
@@ -243,8 +248,8 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
     missing.push({
       id: "choices-pending",
       label: `Escolhas obrigatórias pendentes (${pending})`,
-      stepId: "equipment",
-      stepNumber: 5,
+      stepId: choicesStepId,
+      stepNumber: choicesStepNumber,
       severity: "required",
     });
   }
