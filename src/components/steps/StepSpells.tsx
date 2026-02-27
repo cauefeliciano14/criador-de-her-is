@@ -39,10 +39,17 @@ export function StepSpells() {
   const uncompleteStep = useBuilderStore((s) => s.uncompleteStep);
   const setMissing = useBuilderStore((s) => s.setMissing);
 
-  const char = useCharacterStore();
+  const classId = useCharacterStore((s) => s.class);
+  const abilityScores = useCharacterStore((s) => s.abilityScores);
+  const racialBonuses = useCharacterStore((s) => s.racialBonuses);
+  const backgroundBonuses = useCharacterStore((s) => s.backgroundBonuses);
+  const asiBonuses = useCharacterStore((s) => s.asiBonuses);
+  const featAbilityBonuses = useCharacterStore((s) => s.featAbilityBonuses);
+  const profBonus = useCharacterStore((s) => s.proficiencyBonus);
+  const level = useCharacterStore((s) => s.level);
+  const classFeatureChoices = useCharacterStore((s) => s.classFeatureChoices ?? {});
+  const spellsState = useCharacterStore((s) => s.spells);
   const patchCharacter = useCharacterStore((s) => s.patchCharacter);
-
-  const classId = char.class;
   const cls = classes.find((c) => c.id === classId);
   const sc = cls?.spellcasting ?? null;
 
@@ -58,15 +65,12 @@ export function StepSpells() {
     return map[spellcastingAbility] ?? null;
   }, [spellcastingAbility]);
 
-  const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses, char.featAbilityBonuses);
+  const finalScores = getFinalAbilityScores(abilityScores, racialBonuses, backgroundBonuses, asiBonuses, featAbilityBonuses);
   const abilityMod = abilityKey ? calcAbilityMod(finalScores[abilityKey]) : 0;
-  const profBonus = char.proficiencyBonus;
   const spellSaveDC = sc ? 8 + profBonus + abilityMod : 0;
   const spellAttackBonus = sc ? profBonus + abilityMod : 0;
 
   // Limits
-  const level = char.level;
-  const classFeatureChoices = char.classFeatureChoices ?? {};
 
   const cantripsLimit = useMemo(() => {
     if (!sc) return 0;
@@ -166,10 +170,10 @@ export function StepSpells() {
   const visibleSpells = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
 
   // ── Selection state ──
-  const selectedCantrips = char.spells.cantrips;
+  const selectedCantrips = spellsState.cantrips;
   // NOTE: We store leveled spells in `spells.prepared` for ALL caster types (prepared/known/pact)
   // to keep the state shape simple for now (levels 1–2 focus).
-  const selectedPrepared = char.spells.prepared;
+  const selectedPrepared = spellsState.prepared;
 
   const toggleSpell = (spell: SpellData) => {
     if (spell.level === 0) {
@@ -183,7 +187,7 @@ export function StepSpells() {
       }
       patchCharacter({
         spells: {
-          ...char.spells,
+          ...spellsState,
           cantrips: current,
           spellcastingAbility: abilityKey,
           spellSaveDC,
@@ -202,7 +206,7 @@ export function StepSpells() {
       // Store in `prepared` for all caster types (prepared/known/pact)
       patchCharacter({
         spells: {
-          ...char.spells,
+          ...spellsState,
           cantrips: selectedCantrips,
           prepared: current,
           spellcastingAbility: abilityKey,
@@ -224,7 +228,7 @@ export function StepSpells() {
     if (!sc) return;
     patchCharacter({
       spells: {
-        ...char.spells,
+        ...spellsState,
         spellcastingAbility: abilityKey,
         spellSaveDC,
         spellAttackBonus,

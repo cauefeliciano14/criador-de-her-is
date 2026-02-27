@@ -16,6 +16,7 @@ export interface DevAuditStatus {
 let devAuditStatus: DevAuditStatus = { totalErrors: 0, totalWarnings: 0 };
 
 const PLACEHOLDER_RX = /(à\s+sua\s+escolha|a\s+sua\s+escolha|pendente|todo|tbd|placeholder)/i;
+const PENDING_TEXT_RX = /\bpendente\b/i;
 
 function idsUnique(entries: Array<{ id: string; name?: string }>, dataset: string): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
@@ -57,6 +58,15 @@ function validatePlaceholderUsage(dataset: string, payload: any): ValidationIssu
   });
   if (placeholderCount === 0) return [];
   return [{ severity: "warning", dataset, message: `Encontrados ${placeholderCount} placeholder(s) textual(is) (à sua escolha/pendente/etc.)` }];
+}
+
+function validatePendingTextUsage(dataset: string, payload: any): ValidationIssue[] {
+  let pendingTextCount = 0;
+  walkStrings(payload, (value) => {
+    if (PENDING_TEXT_RX.test(value)) pendingTextCount += 1;
+  });
+  if (pendingTextCount === 0) return [];
+  return [{ severity: "warning", dataset, message: `Encontrados ${pendingTextCount} texto(s) "pendente". Prefira metadado de disponibilidade.` }];
 }
 
 function validateEquipmentChoices(classes: any[]): ValidationIssue[] {
@@ -101,6 +111,9 @@ function validateRaceChoices(races: any[]): ValidationIssue[] {
       ids.add(opt.id);
       if (PLACEHOLDER_RX.test(opt.name) || PLACEHOLDER_RX.test(opt.description ?? "")) {
         issues.push({ severity: "warning", dataset: "races", id: race.id, message: `placeholder em raceChoice option ${opt.id}` });
+      }
+      if (opt.availability && !["ready", "planned"].includes(opt.availability)) {
+        issues.push({ severity: "error", dataset: "races", id: race.id, message: `availability inválido em raceChoice option ${opt.id}` });
       }
     }
   }
@@ -190,6 +203,9 @@ export function validateAllData(datasets: {
     ...validatePlaceholderUsage("classes", classes),
     ...validatePlaceholderUsage("backgrounds", backgrounds),
     ...validatePlaceholderUsage("races", races),
+    ...validatePendingTextUsage("classes", classes),
+    ...validatePendingTextUsage("backgrounds", backgrounds),
+    ...validatePendingTextUsage("races", races),
     ...validateCrossRefs(classes, races, backgrounds, spells, feats),
     ...validateRaceChoices(races),
     ...validateEquipmentChoices(classes),

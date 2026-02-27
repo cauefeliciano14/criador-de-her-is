@@ -1,6 +1,7 @@
 import { classes } from "@/data/classes";
 import { backgrounds } from "@/data/backgrounds";
 import { races } from "@/data/races";
+import type { RaceChoiceOption } from "@/data/races";
 import { languages as allLanguages } from "@/data/languages";
 import { instruments } from "@/data/instruments";
 import { skills } from "@/data/skills";
@@ -112,8 +113,9 @@ export function getChoicesRequirements(character: CharacterState, datasets: Choi
     + reqCount(currentClass?.proficiencies.tools, (v) => INSTRUMENT_RX.test(v));
 
   const raceChoiceData = currentRace?.raceChoice;
+  const raceChoiceOptionsReady = (raceChoiceData?.options ?? []).filter((option: RaceChoiceOption) => option.availability !== "planned");
   const raceChoiceKey = raceChoiceData?.kind ? (RACE_CHOICE_KEY_BY_KIND[raceChoiceData.kind] ?? raceChoiceData.kind) : "";
-  const raceChoiceRequired = raceChoiceData?.required && currentRace?.id !== "aasimar" ? 1 : 0;
+  const raceChoiceRequired = raceChoiceData?.required && currentRace?.id !== "aasimar" && raceChoiceOptionsReady.length > 0 ? 1 : 0;
   const raceChoiceSelected = raceChoiceKey ? character.raceChoices?.[raceChoiceKey] : null;
   const classFeatRequired = character.class === "guerreiro" ? 1 : (character.class === "guardiao" && character.level >= 2 ? 1 : 0);
   const classFeatOptions = feats.filter((f) => ["combate-com-armas-grandes"].includes(f.id)).map((f) => ({ id: f.id, name: f.name }));
@@ -131,7 +133,7 @@ export function getChoicesRequirements(character: CharacterState, datasets: Choi
     ]),
     cantrips: makeBucket(spellData.cantrips, selections.cantrips ?? [], uniq(spellData.options.filter((s) => s.level === 0).map((s) => ({ id: s.id, name: s.name }))), currentClass?.spellcasting ? [`class:${currentClass.id}:spellcasting`] : []),
     spells: makeBucket(spellData.spells, selections.spells ?? [], uniq(spellData.options.filter((s) => s.level >= 1).map((s) => ({ id: s.id, name: s.name }))), currentClass?.spellcasting ? [`class:${currentClass.id}:spellcasting`] : []),
-    raceChoice: makeBucket(raceChoiceRequired, raceChoiceSelected ? [raceChoiceSelected] : [], uniq((raceChoiceData?.options ?? []).map((o) => ({ id: o.id, name: o.name }))), raceChoiceRequired > 0 && currentRace ? [`race:${currentRace.id}:${raceChoiceKey}`] : []),
+    raceChoice: makeBucket(raceChoiceRequired, raceChoiceSelected ? [raceChoiceSelected] : [], uniq(raceChoiceOptionsReady.map((o) => ({ id: o.id, name: o.name }))), raceChoiceRequired > 0 && currentRace ? [`race:${currentRace.id}:${raceChoiceKey}`] : []),
     classFeats: makeBucket(classFeatRequired, selections.classFeats ?? [], classFeatOptions, classFeatRequired ? [`class:${character.class}:fighting-style`] : []),
   };
 

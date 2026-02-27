@@ -9,12 +9,27 @@ import { CheckCircle2 } from "lucide-react";
 export function StepChoices() {
   const char = useCharacterStore();
   const patchCharacter = useCharacterStore((s) => s.patchCharacter);
+  const completeStep = useBuilderStore((s) => s.completeStep);
+  const uncompleteStep = useBuilderStore((s) => s.uncompleteStep);
+  const setMissing = useBuilderStore((s) => s.setMissing);
 
   const requirements = useMemo(() => getChoicesRequirements(char), [char]);
 
   useEffect(() => {
     useBuilderStore.getState().updateChoicesRequirements();
-  }, [char]);
+
+    if (requirements.needsStep) {
+      uncompleteStep("choices");
+      const missing = Object.entries(requirements.buckets)
+        .filter(([, bucket]) => bucket.pendingCount > 0)
+        .map(([bucketKey, bucket]) => `${bucket.pendingCount} pendência(s) em ${bucketTitle(bucketKey)}`);
+      setMissing("choices", missing);
+      return;
+    }
+
+    completeStep("choices");
+    setMissing("choices", []);
+  }, [char, requirements.needsStep, requirements]);
 
   const toggle = (bucket: "classSkills" | "languages" | "tools" | "instruments" | "cantrips" | "spells" | "raceChoice" | "classFeats", id: string) => {
     const selected = new Set(requirements.buckets[bucket].selectedIds);
@@ -59,6 +74,20 @@ export function StepChoices() {
       )}
     </div>
   );
+}
+
+function bucketTitle(key: string) {
+  const labels: Record<string, string> = {
+    classSkills: "Perícias",
+    languages: "Idiomas",
+    tools: "Ferramentas",
+    instruments: "Instrumentos",
+    cantrips: "Truques",
+    spells: "Magias",
+    raceChoice: "Escolha racial",
+    classFeats: "Talentos de classe",
+  };
+  return labels[key] ?? key;
 }
 
 function BucketSection({

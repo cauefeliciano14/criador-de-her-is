@@ -8,9 +8,10 @@ interface StepHeaderProps {
   stepId: StepId;
   canNext: boolean;
   currentMissing: string[];
+  showEnterHint?: boolean;
 }
 
-export function StepHeader({ stepId, canNext, currentMissing }: StepHeaderProps) {
+export function StepHeader({ stepId, canNext, currentMissing, showEnterHint = false }: StepHeaderProps) {
   const visibleSteps = useBuilderStore((s) => s.getVisibleSteps());
   const nextStep = useBuilderStore((s) => s.nextStep);
   const prevStep = useBuilderStore((s) => s.prevStep);
@@ -100,7 +101,13 @@ export function StepHeader({ stepId, canNext, currentMissing }: StepHeaderProps)
         )}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-4">
+        {showEnterHint && (
+          <span className="hidden sm:inline text-xs text-muted-foreground" aria-live="polite">
+            Enter para avançar
+          </span>
+        )}
+
         <button
           onClick={prevStep}
           disabled={isFirst}

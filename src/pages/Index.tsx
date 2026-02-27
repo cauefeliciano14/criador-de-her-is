@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { Header } from "@/components/Header";
 import { IdentityHeader } from "@/components/IdentityHeader";
 import { SidebarSteps } from "@/components/SidebarSteps";
@@ -89,9 +89,14 @@ function BuilderContent() {
   const canNext = isCurrentComplete && currentMissing.length === 0;
 
   const StepComponent = STEP_COMPONENTS[validStep];
+  const activeStepContainerRef = useRef<HTMLDivElement>(null);
 
   // Hook for Enter key to advance
-  useEnterToNextStep({ canGoNext: canNext && !isLast, goNext: nextStep });
+  useEnterToNextStep({
+    canGoNext: canNext && !isLast,
+    goNext: nextStep,
+    containerRef: activeStepContainerRef,
+  });
 
   // Scroll to top when step changes
   useEffect(() => {
@@ -161,10 +166,17 @@ function BuilderContent() {
           </div>
 
           <div className="flex-1 overflow-y-auto" data-step-scroll="true">
-            <StepHeader stepId={validStep} canNext={canNext} currentMissing={currentMissing} />
-            <Suspense fallback={<StepFallback />}>
-              <StepComponent />
-            </Suspense>
+            <StepHeader
+              stepId={validStep}
+              canNext={canNext}
+              currentMissing={currentMissing}
+              showEnterHint={canNext && !isLast}
+            />
+            <div ref={activeStepContainerRef} tabIndex={-1} data-active-step-container="true">
+              <Suspense fallback={<StepFallback />}>
+                <StepComponent />
+              </Suspense>
+            </div>
           </div>
         </div>
 
