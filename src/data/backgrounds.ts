@@ -28,6 +28,12 @@ export interface Background {
   tools: string[];
   languages: string[];
   originFeat: OriginFeat;
+  equipmentChoices?: {
+    id: string;
+    label: string;
+    items: string[];
+    gold: number;
+  }[];
   equipment: {
     items: string[];
     gold: number;

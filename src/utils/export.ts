@@ -54,6 +54,7 @@ export interface CharacterPrimaryData {
   skills: string[];
   classSkillChoices: string[];
   classEquipmentChoice: string | null;
+  backgroundEquipmentChoice: string | null;
   proficiencies: CharacterState["proficiencies"];
   hitDie: number;
   hitPoints: CharacterState["hitPoints"];
@@ -117,6 +118,7 @@ function sanitizeForExport(char: CharacterState): CharacterPrimaryData {
     skills: [...char.skills],
     classSkillChoices: [...char.classSkillChoices],
     classEquipmentChoice: char.classEquipmentChoice,
+    backgroundEquipmentChoice: char.backgroundEquipmentChoice,
     proficiencies: {
       armor: [...char.proficiencies.armor],
       weapons: [...char.proficiencies.weapons],

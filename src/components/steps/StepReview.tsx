@@ -52,7 +52,7 @@ export function StepReview() {
   const validation = useMemo(() => validateCharacterCompleteness(char, builder.choicesRequirements?.needsStep ?? false), [
     char.race, char.subrace, char.class, char.background,
     char.abilityGeneration.confirmed, char.abilityGeneration.method,
-    char.classSkillChoices, char.classEquipmentChoice,
+    char.classSkillChoices, char.classEquipmentChoice, char.backgroundEquipmentChoice,
     char.spells.cantrips, char.spells.prepared, char.spells.spellcastingAbility,
     char.raceAbilityChoices, char.backgroundAbilityChoices,
     char.inventory, char.equipped, char.features,

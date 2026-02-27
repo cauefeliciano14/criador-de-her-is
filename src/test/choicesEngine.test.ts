@@ -10,7 +10,7 @@ describe("choice engine", () => {
       background: "soldado",
       level: 1,
       abilityGeneration: { ...makeCharacter().abilityGeneration, method: "standard", confirmed: true },
-      classEquipmentChoice: "A",
+      classEquipmentChoice: "A", backgroundEquipmentChoice: null,
       classSkillChoices: ["atletismo", "intuicao"],
       choiceSelections: { classSkills: ["atletismo", "intuicao"], languages: [], tools: [], instruments: [], cantrips: [], spells: [], raceChoice: null, classFeats: [] },
     });

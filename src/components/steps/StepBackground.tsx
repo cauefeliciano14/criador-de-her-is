@@ -67,6 +67,7 @@ export function StepBackground() {
 
     patchCharacter({
       background: id,
+      backgroundEquipmentChoice: null,
       backgroundAbilityChoices: {},
       backgroundBonuses: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 },
       features,
@@ -222,17 +223,41 @@ function BackgroundDetails({ bg, featExpanded, onToggleFeat }: BackgroundDetails
 
         {/* Equipment */}
         <Section title="Equipamento">
-          {bg.equipment.items.length > 0 && (
-            <ul className="list-disc ml-5 text-sm space-y-1 mb-2">
-              {[...bg.equipment.items].sort((a, b) => a.localeCompare(b, "pt-BR")).map((e) => (
-                <li key={e}>{e}</li>
+          {bg.equipmentChoices && bg.equipmentChoices.length > 0 ? (
+            <div className="space-y-3">
+              {bg.equipmentChoices.map((choice) => (
+                <div key={choice.id} className="rounded border bg-secondary/30 p-3">
+                  <p className="text-sm font-medium mb-1">{choice.label}</p>
+                  {choice.items.length > 0 && (
+                    <ul className="list-disc ml-5 text-sm space-y-1 mb-1">
+                      {choice.items.map((e) => (
+                        <li key={e}>{e}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {choice.gold > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      <Package className="inline h-3.5 w-3.5 mr-1" />{choice.gold} PO
+                    </p>
+                  )}
+                </div>
               ))}
-            </ul>
-          )}
-          {bg.equipment.gold > 0 && (
-            <p className="text-sm text-muted-foreground">
-              <Package className="inline h-3.5 w-3.5 mr-1" />{bg.equipment.gold} PO
-            </p>
+            </div>
+          ) : (
+            <>
+              {bg.equipment.items.length > 0 && (
+                <ul className="list-disc ml-5 text-sm space-y-1 mb-2">
+                  {[...bg.equipment.items].sort((a, b) => a.localeCompare(b, "pt-BR")).map((e) => (
+                    <li key={e}>{e}</li>
+                  ))}
+                </ul>
+              )}
+              {bg.equipment.gold > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  <Package className="inline h-3.5 w-3.5 mr-1" />{bg.equipment.gold} PO
+                </p>
+              )}
+            </>
           )}
           <p className="text-xs text-info mt-2">
             <Info className="inline h-3 w-3 mr-1" />

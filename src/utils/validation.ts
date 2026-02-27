@@ -260,6 +260,16 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
     });
   }
 
+  if (bg?.equipmentChoices && bg.equipmentChoices.length > 0 && !char.backgroundEquipmentChoice) {
+    missing.push({
+      id: "background-equipment-choice",
+      label: "Equipamento inicial da origem não escolhido",
+      stepId: "equipment",
+      stepNumber: 5,
+      severity: "required",
+    });
+  }
+
   // 6. Spells (if spellcaster)
   if (cls?.spellcasting) {
     const sc = cls.spellcasting;
