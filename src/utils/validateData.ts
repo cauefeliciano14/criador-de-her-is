@@ -86,6 +86,31 @@ function validateEquipmentChoices(classes: any[]): ValidationIssue[] {
   return issues;
 }
 
+
+function validateRaceChoices(races: any[]): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  for (const race of races) {
+    if (!race.raceChoice) continue;
+    const rc = race.raceChoice;
+    if (rc.required && (!Array.isArray(rc.options) || rc.options.length === 0)) {
+      issues.push({ severity: "warning", dataset: "races", id: race.id, message: "raceChoice obrigatório sem opções" });
+    }
+    const ids = new Set<string>();
+    for (const opt of rc.options ?? []) {
+      if (ids.has(opt.id)) issues.push({ severity: "warning", dataset: "races", id: race.id, message: `raceChoice com option id duplicado: ${opt.id}` });
+      ids.add(opt.id);
+      if (PLACEHOLDER_RX.test(opt.name) || PLACEHOLDER_RX.test(opt.description ?? "")) {
+        issues.push({ severity: "warning", dataset: "races", id: race.id, message: `placeholder em raceChoice option ${opt.id}` });
+      }
+    }
+  }
+  const draconato = races.find((r) => r.id === "draconato");
+  if (draconato?.raceChoice?.label && /(heran|ancestral)/i.test(draconato.raceChoice.label) && Array.isArray(draconato.subraces) && draconato.subraces.length > 0) {
+    issues.push({ severity: "warning", dataset: "races", id: "draconato", message: "Possível duplicidade de conceito dracônico (subrace + raceChoice)" });
+  }
+  return issues;
+}
+
 function validateCrossRefs(classes: any[], races: any[], backgrounds: any[], spells: any[], feats: any[]): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const classIds = new Set(classes.map((c) => c.id));
@@ -166,6 +191,7 @@ export function validateAllData(datasets: {
     ...validatePlaceholderUsage("backgrounds", backgrounds),
     ...validatePlaceholderUsage("races", races),
     ...validateCrossRefs(classes, races, backgrounds, spells, feats),
+    ...validateRaceChoices(races),
     ...validateEquipmentChoices(classes),
     ...validateSourcePages("spells", spells),
     ...validateSourcePages("feats", feats),

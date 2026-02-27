@@ -2,7 +2,9 @@ import { useCharacterStore, mergeUnique, replaceFeatures, type NormalizedFeature
 import { useBuilderStore } from "@/state/builderStore";
 import { classes, type ClassData } from "@/data/classes";
 import { CheckCircle2, Search, Info, ChevronDown, ChevronUp, Swords, Shield, Package, AlertTriangle, BookOpen, Lock } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { getChoicesRequirements } from "@/utils/choices";
+import { instruments } from "@/data/instruments";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -29,6 +31,11 @@ export function StepClass() {
     .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
   const selectedClass = classes.find((c) => c.id === classId);
+  const choiceSelections = useCharacterStore((s) => s.choiceSelections);
+  const raceId = useCharacterStore((s) => s.race);
+  const backgroundId = useCharacterStore((s) => s.background);
+  const datasetsVersion = `${classes.length}:${instruments.length}`;
+  const requirements = useMemo(() => getChoicesRequirements(useCharacterStore.getState()), [classId, raceId, backgroundId, level, choiceSelections, datasetsVersion]);
 
   const MAX_SUPPORTED_LEVEL = 2;
 
@@ -84,6 +91,10 @@ export function StepClass() {
         // Druid: Primal Order required
         if (classId === "druida" && !classFeatureChoices["druida:ordemPrimal"]) {
           missing.push("Escolher Ordem Primal");
+        }
+        if (classId === "bardo" && requirements.buckets.instruments.pendingCount > 0) {
+          const sel = requirements.buckets.instruments.requiredCount - requirements.buckets.instruments.pendingCount;
+          missing.push(`Escolher instrumentos (${sel}/${requirements.buckets.instruments.requiredCount})`);
         }
       }
     }
@@ -180,6 +191,7 @@ export function StepClass() {
       flags: classFlags,
       classFeatureChoices: {},
       expertiseSkills: [],
+      choiceSelections: { ...state.choiceSelections, classSkills: [], instruments: [] },
     });
   };
 
@@ -257,6 +269,14 @@ export function StepClass() {
       applySubclass(pendingSubclassSwap);
       setPendingSubclassSwap(null);
     }
+  };
+
+  const toggleInstrument = (instrumentId: string) => {
+    if (classId !== "bardo") return;
+    const current = new Set(choiceSelections.instruments ?? []);
+    if (current.has(instrumentId)) current.delete(instrumentId);
+    else if (current.size < 3) current.add(instrumentId);
+    patchCharacter({ choiceSelections: { ...choiceSelections, instruments: [...current] } });
   };
 
   const toggleFeature = (name: string) => {
@@ -355,6 +375,10 @@ export function StepClass() {
             level={level}
             expandedFeatures={expandedFeatures}
             onToggleSkill={handleToggleSkill}
+            instrumentSelections={choiceSelections.instruments ?? []}
+            instrumentOptions={requirements.buckets.instruments.options}
+            instrumentPending={requirements.buckets.instruments.pendingCount}
+            onToggleInstrument={toggleInstrument}
             onSelectSubclass={handleSubclass}
             onToggleFeature={toggleFeature}
             onSetFeatureChoice={(key, value) => {
@@ -436,6 +460,10 @@ interface ClassDetailsProps {
   level: number;
   expandedFeatures: Record<string, boolean>;
   onToggleSkill: (skill: string) => void;
+  instrumentSelections: string[];
+  instrumentOptions: { id: string; name: string }[];
+  instrumentPending: number;
+  onToggleInstrument: (id: string) => void;
   onSelectSubclass: (id: string) => void;
   onToggleFeature: (name: string) => void;
   onSetFeatureChoice: (key: string, value: string) => void;
@@ -450,6 +478,10 @@ function ClassDetails({
   level,
   expandedFeatures,
   onToggleSkill,
+  instrumentSelections,
+  instrumentOptions,
+  instrumentPending,
+  onToggleInstrument,
   onSelectSubclass,
   onToggleFeature,
   onSetFeatureChoice,
@@ -572,6 +604,24 @@ function ClassDetails({
             {classSkillChoices.length}/{cls.skillChoices.choose} selecionadas
           </p>
         </Section>
+
+        {cls.id === "bardo" && (
+          <Section title="Instrumentos Musicais (Proficiência)">
+            <p className="text-sm text-muted-foreground mb-3">Escolha exatamente 3 instrumentos.</p>
+            <div className="grid grid-cols-2 gap-2">
+              {instrumentOptions.map((opt) => {
+                const selected = instrumentSelections.includes(opt.id);
+                const disabled = !selected && instrumentSelections.length >= 3;
+                return (
+                  <button key={opt.id} onClick={() => onToggleInstrument(opt.id)} disabled={disabled} className={`rounded-md border px-3 py-2 text-left text-sm ${selected ? "border-primary bg-primary/10" : disabled ? "opacity-40 cursor-not-allowed" : "hover:bg-secondary"}`}>
+                    {opt.name}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">{instrumentSelections.length}/3 selecionados • pendentes: {instrumentPending}</p>
+          </Section>
+        )}
 
         {/* Equipment preview (selection happens in step 5: Equipamentos) */}
         <Section title="Equipamento Inicial">
