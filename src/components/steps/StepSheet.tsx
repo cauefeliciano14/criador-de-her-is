@@ -32,7 +32,7 @@ export function StepSheet() {
   const [activeTab, setActiveTab] = useState("resumo");
   const [showLevelUp, setShowLevelUp] = useState(false);
 
-  const canLevelUp = cls && char.level < 20;
+  const canLevelUp = cls && char.level < 2;
 
   // Validation drives step completion for "sheet"
   const validation = useMemo(
@@ -91,7 +91,7 @@ export function StepSheet() {
             </div>
           )}
           {!canLevelUp && (
-            <p className="text-xs text-muted-foreground">Nível máximo alcançado (20).</p>
+            <p className="text-xs text-muted-foreground">Nível máximo alcançado no recorte atual (2).</p>
           )}
         </div>
       </div>

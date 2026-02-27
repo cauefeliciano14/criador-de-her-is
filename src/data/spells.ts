@@ -10,6 +10,7 @@ export interface SpellData {
   components: string[];
   duration: string;
   classes: string[];
+  classIds?: string[];
   description: string;
   source: { book: string; page: number };
 }

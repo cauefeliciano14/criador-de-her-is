@@ -23,7 +23,7 @@ export function StepChoices() {
     else completeStep("choices");
   }, [requirements.needsStep, completeStep, uncompleteStep]);
 
-  const toggle = (bucket: "languages" | "instruments" | "cantrips" | "spells" | "raceChoice" | "skills", id: string) => {
+  const toggle = (bucket: "languages" | "tools" | "instruments" | "cantrips" | "spells" | "raceChoice" | "skills", id: string) => {
     const selected = new Set(requirements[bucket].selectedIds);
     if (selected.has(id)) selected.delete(id);
     else if (selected.size < requirements[bucket].requiredCount) selected.add(id);
@@ -52,8 +52,9 @@ export function StepChoices() {
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <h2 className="text-2xl font-bold">Escolhas</h2>
 
+      <BucketSection title="Perícias" bucket={requirements.skills} onToggle={(id) => toggle("skills", id)} />
       <BucketSection title="Idiomas" bucket={requirements.languages} onToggle={(id) => toggle("languages", id)} />
-      <BucketSection title="Ferramentas" bucket={requirements.tools} onToggle={() => {}} readOnly />
+      <BucketSection title="Ferramentas" bucket={requirements.tools} onToggle={(id) => toggle("tools", id)} />
       <BucketSection title="Instrumentos" bucket={requirements.instruments} onToggle={(id) => toggle("instruments", id)} />
       <BucketSection title="Truques" bucket={requirements.cantrips} onToggle={(id) => toggle("cantrips", id)} />
       <BucketSection title="Magias" bucket={requirements.spells} onToggle={(id) => toggle("spells", id)} />
@@ -72,13 +73,11 @@ export function StepChoices() {
 function BucketSection({
   title,
   bucket,
-  onToggle,
-  readOnly = false,
+  onToggle
 }: {
   title: string;
   bucket: { requiredCount: number; pendingCount: number; selectedIds: string[]; options: ChoiceOption[] };
   onToggle: (id: string) => void;
-  readOnly?: boolean;
 }) {
   if (bucket.requiredCount <= 0) return null;
 
@@ -98,7 +97,6 @@ function BucketSection({
               <button
                 type="button"
                 key={option.id}
-                disabled={readOnly}
                 onClick={() => onToggle(option.id)}
                 className={`p-2 rounded border text-left ${selected ? "bg-primary/10 border-primary" : "border-border hover:bg-muted"}`}
               >

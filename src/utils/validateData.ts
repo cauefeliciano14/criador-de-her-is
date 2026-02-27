@@ -14,7 +14,7 @@ export interface DevAuditStatus {
 
 let devAuditStatus: DevAuditStatus = { totalErrors: 0, totalWarnings: 0 };
 
-const PLACEHOLDER_RX = /(à\s+sua\s+escolha|pendente|todo|tbd|placeholder)/i;
+const PLACEHOLDER_RX = /(à\s+sua\s+escolha|a\s+sua\s+escolha|pendente|todo|tbd|placeholder)/i;
 
 function idsUnique(entries: Array<{ id: string; name?: string }>, dataset: string): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
@@ -38,32 +38,73 @@ function validateCatalogCounts(classes: any[], backgrounds: any[], races: any[])
   return issues;
 }
 
-function validatePlaceholderUsage(dataset: string, payload: any): ValidationIssue[] {
-  const text = JSON.stringify(payload);
-  if (!PLACEHOLDER_RX.test(text)) return [];
-  return [{ severity: "warning", dataset, message: "Encontrado placeholder textual (à sua escolha/pendente/etc.)" }];
+function walkStrings(payload: unknown, visit: (value: string) => void) {
+  if (typeof payload === "string") return visit(payload);
+  if (Array.isArray(payload)) {
+    payload.forEach((item) => walkStrings(item, visit));
+    return;
+  }
+  if (payload && typeof payload === "object") {
+    Object.values(payload).forEach((item) => walkStrings(item, visit));
+  }
 }
 
-function validateCrossRefs(classes: any[], backgrounds: any[], spells: any[], feats: any[]): ValidationIssue[] {
+function validatePlaceholderUsage(dataset: string, payload: any): ValidationIssue[] {
+  let placeholderCount = 0;
+  walkStrings(payload, (value) => {
+    if (PLACEHOLDER_RX.test(value)) placeholderCount += 1;
+  });
+  if (placeholderCount === 0) return [];
+  return [{ severity: "warning", dataset, message: `Encontrados ${placeholderCount} placeholder(s) textual(is) (à sua escolha/pendente/etc.)` }];
+}
+
+function validateCrossRefs(classes: any[], races: any[], backgrounds: any[], spells: any[], feats: any[]): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
-  const classNameSet = new Set(classes.map((c) => c.name));
+  const classIds = new Set(classes.map((c) => c.id));
+  const classNames = new Set(classes.map((c) => c.name));
   const featIds = new Set(feats.map((f) => f.id));
+  const raceChoiceIds = new Set<string>();
+
+  for (const race of races) {
+    if (!race.raceChoice?.options) continue;
+    for (const option of race.raceChoice.options) {
+      if (!option?.id) {
+        issues.push({ severity: "error", dataset: "races", id: race.id, message: "raceChoice option sem id" });
+        continue;
+      }
+      if (raceChoiceIds.has(option.id)) {
+        issues.push({ severity: "warning", dataset: "races", id: race.id, message: `raceChoice optionId duplicado globalmente: ${option.id}` });
+      }
+      raceChoiceIds.add(option.id);
+    }
+  }
 
   for (const spell of spells) {
-    if (!Array.isArray(spell.classes)) continue;
-    for (const className of spell.classes) {
-      if (!classNameSet.has(className)) {
-        issues.push({ severity: "error", dataset: "spells", id: spell.id, message: `Classe não encontrada em spell.classes: ${className}` });
+    if (Array.isArray(spell.classIds)) {
+      for (const classId of spell.classIds) {
+        if (!classIds.has(classId)) {
+          issues.push({ severity: "error", dataset: "spells", id: spell.id, message: `classId inexistente em spell.classIds: ${classId}` });
+        }
       }
     }
+
     if (Array.isArray(spell.classes) && spell.classes.length > 0) {
-      issues.push({ severity: "warning", dataset: "spells", id: spell.id, message: "wiring por name/classes detectado; prefira indexação por ID" });
+      issues.push({ severity: "warning", dataset: "spells", id: spell.id, message: "wiring por name (spell.classes) detectado; prefira IDs" });
+      for (const className of spell.classes) {
+        if (!classNames.has(className)) {
+          issues.push({ severity: "error", dataset: "spells", id: spell.id, message: `Classe não encontrada em spell.classes: ${className}` });
+        }
+      }
+    }
+
+    if ((!Array.isArray(spell.classIds) || spell.classIds.length === 0) && (!Array.isArray(spell.classes) || spell.classes.length === 0)) {
+      issues.push({ severity: "error", dataset: "spells", id: spell.id, message: "Magia sem referência de classe (classIds/classes)" });
     }
   }
 
   for (const bg of backgrounds) {
-    if (bg.originFeat && !featIds.has(bg.originFeat)) {
-      issues.push({ severity: "error", dataset: "backgrounds", id: bg.id, message: `originFeat inexistente: ${bg.originFeat}` });
+    if (bg.originFeat && !featIds.has(bg.originFeat.id ?? bg.originFeat)) {
+      issues.push({ severity: "error", dataset: "backgrounds", id: bg.id, message: `originFeat inexistente: ${bg.originFeat.id ?? bg.originFeat}` });
     }
   }
 
@@ -96,7 +137,7 @@ export function validateAllData(datasets: {
     ...validatePlaceholderUsage("classes", classes),
     ...validatePlaceholderUsage("backgrounds", backgrounds),
     ...validatePlaceholderUsage("races", races),
-    ...validateCrossRefs(classes, backgrounds, spells, feats),
+    ...validateCrossRefs(classes, races, backgrounds, spells, feats),
   ];
 
   devAuditStatus = {

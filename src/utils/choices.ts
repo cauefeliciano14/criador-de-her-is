@@ -48,7 +48,7 @@ interface ChoicesDatasets {
 }
 
 const DEFAULT_DATASETS: ChoicesDatasets = { classes, backgrounds, races };
-const PLACEHOLDER_RX = /\b(à\s+sua\s+escolha|pendente)\b/i;
+const PLACEHOLDER_RX = /\b([àa]\s+sua\s+escolha|pendente)\b/i;
 const LANGUAGE_RX = /(idioma|idiomas)/i;
 const INSTRUMENT_RX = /(instrumento|instrumentos)/i;
 const TOOL_RX = /(ferramenta|ferramentas|jogo|jogos)/i;
@@ -74,6 +74,27 @@ function makeBucket(requiredCount: number, selectedIds: string[], options: Choic
     pendingCount: Math.max(0, requiredCount - capped.length),
     sources,
   };
+}
+
+function normalizeRequirementText(raw: string): string {
+  return raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function requirementCountFromList(values: string[] | undefined, predicate: (normalized: string) => boolean): number {
+  if (!values?.length) return 0;
+  return values
+    .map((v) => normalizeRequirementText(v))
+    .filter((value) => PLACEHOLDER_RX.test(value) && predicate(value))
+    .reduce((sum, value) => sum + countChoicesFromText(value), 0);
+}
+
+function uniqueById(options: ChoiceOption[]): ChoiceOption[] {
+  const seen = new Set<string>();
+  return options.filter((option) => {
+    if (seen.has(option.id)) return false;
+    seen.add(option.id);
+    return true;
+  });
 }
 
 function resolveCasterSpellLimit(character: CharacterState, classId: string) {
@@ -133,21 +154,25 @@ export function getChoicesRequirements(
   _canonicalSpecs?: unknown
 ): ChoicesRequirements {
   const currentClass = datasets.classes.find((c) => c.id === character.class);
+  const currentBackground = datasets.backgrounds.find((b) => b.id === character.background);
   const currentRace = datasets.races.find((r) => r.id === character.race);
 
   const selections = character.choiceSelections ?? {
     skills: [], languages: [], tools: [], instruments: [], cantrips: [], spells: [], raceChoice: null,
   };
 
-  const languagePlaceholders = (character.proficiencies.languages ?? []).filter((item) => PLACEHOLDER_RX.test(item) && LANGUAGE_RX.test(item));
-  const toolPlaceholders = (character.proficiencies.tools ?? []).filter((item) => PLACEHOLDER_RX.test(item));
-  const languageRequired = languagePlaceholders.reduce((sum, item) => sum + countChoicesFromText(item), 0);
-  const instrumentRequired = toolPlaceholders
-    .filter((item) => INSTRUMENT_RX.test(item))
-    .reduce((sum, item) => sum + countChoicesFromText(item), 0);
-  const toolsRequired = toolPlaceholders
-    .filter((item) => TOOL_RX.test(item) && !INSTRUMENT_RX.test(item))
-    .reduce((sum, item) => sum + countChoicesFromText(item), 0);
+  const languageRequired =
+    requirementCountFromList(character.proficiencies.languages, (value) => LANGUAGE_RX.test(value)) +
+    requirementCountFromList(currentBackground?.languages, (value) => LANGUAGE_RX.test(value)) +
+    requirementCountFromList(currentRace?.languages, (value) => LANGUAGE_RX.test(value));
+  const instrumentRequired =
+    requirementCountFromList(character.proficiencies.tools, (value) => INSTRUMENT_RX.test(value)) +
+    requirementCountFromList(currentBackground?.tools, (value) => INSTRUMENT_RX.test(value)) +
+    requirementCountFromList(currentClass?.proficiencies.tools, (value) => INSTRUMENT_RX.test(value));
+  const toolsRequired =
+    requirementCountFromList(character.proficiencies.tools, (value) => TOOL_RX.test(value) && !INSTRUMENT_RX.test(value)) +
+    requirementCountFromList(currentBackground?.tools, (value) => TOOL_RX.test(value) && !INSTRUMENT_RX.test(value)) +
+    requirementCountFromList(currentClass?.proficiencies.tools, (value) => TOOL_RX.test(value) && !INSTRUMENT_RX.test(value));
 
   const knownLanguageIds = new Set(
     (character.proficiencies.languages ?? [])
@@ -163,43 +188,58 @@ export function getChoicesRequirements(
       .filter(Boolean) as string[]
   );
 
-  const languageOptions = allLanguages
+  const languageOptions = uniqueById(allLanguages
     .filter((l) => !knownLanguageIds.has(l.id))
-    .map((l) => ({ id: l.id, name: l.name }));
+    .map((l) => ({ id: l.id, name: l.name })));
 
-  const instrumentOptions = musicalInstruments
+  const instrumentOptions = uniqueById(musicalInstruments
     .filter((i) => !knownInstrumentIds.has(i.id))
-    .map((i) => ({ id: i.id, name: i.name }));
+    .map((i) => ({ id: i.id, name: i.name })));
 
-  const genericToolOptions = Array.from(new Set((character.proficiencies.tools ?? [])
+  const genericToolOptions = uniqueById(Array.from(new Set((character.proficiencies.tools ?? [])
     .filter((item) => !PLACEHOLDER_RX.test(item) && !INSTRUMENT_RX.test(item))
     .map((name) => ({ id: slugifyId(name), name }))
     .map((item) => `${item.id}::${item.name}`)))
     .map((item) => {
       const [id, name] = item.split("::");
       return { id, name };
-    });
+    }));
 
   const classSkillRequired = currentClass ? currentClass.skillChoices.choose : 0;
-  const classSkillOptions = currentClass
+  const classSkillOptions = uniqueById(currentClass
     ? currentClass.skillChoices.from
         .map((name) => skills.find((s) => s.name === name))
         .filter(Boolean)
         .map((s) => ({ id: s!.id, name: s!.name }))
-    : [];
+    : []);
 
   const spellData = character.class ? resolveCasterSpellLimit(character, character.class) : { cantrips: 0, spells: 0, options: [] as any[] };
-  const cantripOptions = spellData.options.filter((s) => s.level === 0).map((s) => ({ id: s.id, name: s.name }));
-  const leveledOptions = spellData.options.filter((s) => s.level >= 1).map((s) => ({ id: s.id, name: s.name }));
+  const cantripOptions = uniqueById(spellData.options.filter((s) => s.level === 0).map((s) => ({ id: s.id, name: s.name })));
+  const leveledOptions = uniqueById(spellData.options.filter((s) => s.level >= 1).map((s) => ({ id: s.id, name: s.name })));
 
   const raceChoiceRequired = currentRace?.raceChoice?.required ? 1 : 0;
-  const raceChoiceOptions = currentRace?.raceChoice?.options?.map((o) => ({ id: o.id, name: o.name })) ?? [];
+  const raceChoiceOptions = uniqueById(currentRace?.raceChoice?.options?.map((o) => ({ id: o.id, name: o.name })) ?? []);
+
+  const languageSources = [
+    ...((currentRace?.languages ?? []).filter((value) => PLACEHOLDER_RX.test(value) && LANGUAGE_RX.test(value)).map(() => `race:${currentRace?.id}:language-choice`) ?? []),
+    ...((currentBackground?.languages ?? []).filter((value) => PLACEHOLDER_RX.test(value) && LANGUAGE_RX.test(value)).map(() => `background:${currentBackground?.id}:language-choice`) ?? []),
+  ];
+
+  const toolSources = [
+    ...((currentClass?.proficiencies.tools ?? []).filter((value) => PLACEHOLDER_RX.test(value) && TOOL_RX.test(value) && !INSTRUMENT_RX.test(value)).map(() => `class:${currentClass?.id}:tool-choice`) ?? []),
+    ...((currentBackground?.tools ?? []).filter((value) => PLACEHOLDER_RX.test(value) && TOOL_RX.test(value) && !INSTRUMENT_RX.test(value)).map(() => `background:${currentBackground?.id}:tool-choice`) ?? []),
+  ];
+
+  const instrumentSources = [
+    ...((currentClass?.proficiencies.tools ?? []).filter((value) => PLACEHOLDER_RX.test(value) && INSTRUMENT_RX.test(value)).map(() => `class:${currentClass?.id}:instrument-choice`) ?? []),
+    ...((currentBackground?.tools ?? []).filter((value) => PLACEHOLDER_RX.test(value) && INSTRUMENT_RX.test(value)).map(() => `background:${currentBackground?.id}:instrument-choice`) ?? []),
+  ];
 
   const requirements: ChoicesRequirements = {
     skills: makeBucket(classSkillRequired, selections.skills, classSkillOptions, currentClass ? [`class:${currentClass.id}`] : []),
-    languages: makeBucket(languageRequired, selections.languages, languageOptions, languagePlaceholders.map((_, idx) => `languages:${idx}`)),
-    tools: makeBucket(toolsRequired, selections.tools, genericToolOptions, toolPlaceholders.filter((p) => TOOL_RX.test(p)).map((_, idx) => `tools:${idx}`)),
-    instruments: makeBucket(instrumentRequired, selections.instruments, instrumentOptions, toolPlaceholders.filter((p) => INSTRUMENT_RX.test(p)).map((_, idx) => `instruments:${idx}`)),
+    languages: makeBucket(languageRequired, selections.languages, languageOptions, languageSources),
+    tools: makeBucket(toolsRequired, selections.tools, genericToolOptions, toolSources),
+    instruments: makeBucket(instrumentRequired, selections.instruments, instrumentOptions, instrumentSources),
     cantrips: makeBucket(spellData.cantrips, selections.cantrips, cantripOptions, currentClass?.spellcasting ? [`class:${currentClass.id}:spellcasting`] : []),
     spells: makeBucket(spellData.spells, selections.spells, leveledOptions, currentClass?.spellcasting ? [`class:${currentClass.id}:spellcasting`] : []),
     raceChoice: {
