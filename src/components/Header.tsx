@@ -19,6 +19,8 @@ const RESET_CONFIRMATION_TEXT = "REINICIAR";
 export function Header() {
   const [confirmationText, setConfirmationText] = useState("");
   const resetCharacter = useCharacterStore((s) => s.resetCharacter);
+  const lastSavedAt = useCharacterStore((s) => s.lastSavedAt);
+  const persistError = useCharacterStore((s) => s.persistError);
   const resetBuilder = useBuilderStore((s) => s.resetBuilder);
 
   const handleReset = () => {
@@ -34,11 +36,18 @@ export function Header() {
   };
 
   const isResetDisabled = confirmationText.trim().toUpperCase() !== RESET_CONFIRMATION_TEXT;
+  const savedAtLabel = lastSavedAt
+    ? `Salvo automaticamente às ${new Date(lastSavedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
+    : "";
 
   return (
     <header className="sticky top-0 z-50 flex h-14 items-center justify-between border-b bg-card px-6">
       <h1 className="text-lg font-bold tracking-wide">⚔️ D&D 2024 Character Builder (PT-BR)</h1>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
+        <div className="text-right">
+          {savedAtLabel && <p className="text-xs text-muted-foreground">{savedAtLabel}</p>}
+          {persistError && <p className="text-xs text-destructive">{persistError}</p>}
+        </div>
         <AlertDialog onOpenChange={handleDialogOpenChange}>
           <AlertDialogTrigger asChild>
             <button className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
