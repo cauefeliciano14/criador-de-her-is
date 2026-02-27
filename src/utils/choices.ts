@@ -4,6 +4,7 @@ import { races } from "@/data/races";
 import type { RaceChoiceOption } from "@/data/races";
 import { languages as allLanguages } from "@/data/languages";
 import { instruments } from "@/data/instruments";
+import { items } from "@/data/items";
 import { skills } from "@/data/skills";
 import { feats } from "@/data/feats";
 import { spellsByClassId } from "@/data/indexes";
@@ -39,6 +40,8 @@ const PLACEHOLDER_RX = /\b([àa]\s+sua\s+escolha|pendente)\b/i;
 const LANGUAGE_RX = /(idioma|idiomas)/i;
 const INSTRUMENT_RX = /(instrumento|instrumentos)/i;
 const TOOL_RX = /(ferramenta|ferramentas|jogo|jogos)/i;
+const GAME_TOOL_RX = /(tipo de jogo|jogo|jogos)/i;
+const ARTISAN_TOOL_RX = /(ferramenta(?:s)? de artes[aã]o|tipo de ferramenta de artes[aã]o)/i;
 const NUMBER_WORDS: Record<string, number> = { um: 1, uma: 1, dois: 2, duas: 2, três: 3, tres: 3, quatro: 4, cinco: 5 };
 const CANONICAL_CLASS_SKILL_COUNTS: Record<string, number> = {
   barbaro: 2, bardo: 3, bruxo: 2, clerigo: 2, druida: 2, feiticeiro: 2, guardiao: 3, guerreiro: 2, ladino: 4, mago: 2, monge: 2, paladino: 2,
@@ -55,6 +58,42 @@ const RACE_CHOICE_KEY_BY_KIND: Record<string, string> = {
 const normalize = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const countChoicesFromText = (text: string) => NUMBER_WORDS[(text.match(/\b(um|uma|dois|duas|três|tres|quatro|cinco)\b/i)?.[1] ?? "um").toLowerCase()] ?? 1;
 const uniq = (options: ChoiceOption[]) => [...new Map(options.map((o) => [o.id, o])).values()];
+
+type ToolSubtype = "any" | "artisan" | "game";
+
+const TOOL_CATALOG: Array<ChoiceOption & { subtype: ToolSubtype }> = [
+  ...items
+    .filter((item) => item.type === "tool")
+    .map((item) => ({ id: item.id, name: item.name, subtype: "any" as const })),
+  { id: "jogo-dados", name: "Jogo de Dados", subtype: "game" },
+  { id: "jogo-cartas", name: "Jogo de Cartas", subtype: "game" },
+  { id: "jogo-xadrez", name: "Jogo de Xadrez", subtype: "game" },
+  { id: "jogo-tabuleiro", name: "Jogo de Tabuleiro", subtype: "game" },
+  { id: "ferramentas-artesao-alquimista", name: "Ferramentas de Alquimista", subtype: "artisan" },
+  { id: "ferramentas-artesao-cervejeiro", name: "Ferramentas de Cervejeiro", subtype: "artisan" },
+  { id: "ferramentas-artesao-ferreiro", name: "Ferramentas de Ferreiro", subtype: "artisan" },
+  { id: "ferramentas-artesao-carpinteiro", name: "Ferramentas de Carpinteiro", subtype: "artisan" },
+  { id: "ferramentas-artesao-coureiro", name: "Ferramentas de Coureiro", subtype: "artisan" },
+  { id: "ferramentas-artesao-joalheiro", name: "Ferramentas de Joalheiro", subtype: "artisan" },
+  { id: "ferramentas-artesao-marceneiro", name: "Ferramentas de Marceneiro", subtype: "artisan" },
+  { id: "ferramentas-artesao-mestre-ceramica", name: "Ferramentas de Oleiro", subtype: "artisan" },
+  { id: "ferramentas-artesao-pedreiro", name: "Ferramentas de Pedreiro", subtype: "artisan" },
+  { id: "ferramentas-artesao-tecelao", name: "Ferramentas de Tecelão", subtype: "artisan" },
+  { id: "ferramentas-artesao-vidraceiro", name: "Ferramentas de Vidraceiro", subtype: "artisan" },
+];
+
+function getToolSubtype(text: string): ToolSubtype {
+  if (ARTISAN_TOOL_RX.test(text)) return "artisan";
+  if (GAME_TOOL_RX.test(text)) return "game";
+  return "any";
+}
+
+function buildToolRequirements(values: string[] | undefined) {
+  return (values ?? [])
+    .map((value) => ({ raw: value, normalized: normalize(value) }))
+    .filter(({ normalized }) => PLACEHOLDER_RX.test(normalized) && TOOL_RX.test(normalized) && !INSTRUMENT_RX.test(normalized))
+    .map(({ raw, normalized }) => ({ count: countChoicesFromText(raw), subtype: getToolSubtype(normalized), raw }));
+}
 
 function makeBucket(requiredCount: number, selectedIds: string[], options: ChoiceOption[], sources: string[]): ChoiceBucket {
   const safeOptions = options ?? [];
@@ -112,6 +151,21 @@ export function getChoicesRequirements(character: CharacterState, datasets: Choi
     + reqCount(currentBackground?.tools, (v) => INSTRUMENT_RX.test(v))
     + reqCount(currentClass?.proficiencies.tools, (v) => INSTRUMENT_RX.test(v));
 
+  const backgroundToolRequirements = buildToolRequirements(currentBackground?.tools);
+  const classToolRequirements = buildToolRequirements(currentClass?.proficiencies.tools);
+  const toolRequirements = [...backgroundToolRequirements, ...classToolRequirements];
+  const toolRequiredCount = toolRequirements.reduce((sum, req) => sum + req.count, 0);
+  const toolSubtypes = new Set(toolRequirements.map((req) => req.subtype));
+  const toolOptions = uniq(TOOL_CATALOG
+    .filter((tool) => {
+      if (toolSubtypes.size === 0) return false;
+      if (toolSubtypes.has("any")) return true;
+      if (toolSubtypes.has("artisan") && tool.subtype === "artisan") return true;
+      if (toolSubtypes.has("game") && tool.subtype === "game") return true;
+      return false;
+    })
+    .map(({ id, name }) => ({ id, name })));
+
   const raceChoiceData = currentRace?.raceChoice;
   const raceChoiceOptionsReady = (raceChoiceData?.options ?? []).filter((option: RaceChoiceOption) => option.availability !== "planned");
   const raceChoiceKey = raceChoiceData?.kind ? (RACE_CHOICE_KEY_BY_KIND[raceChoiceData.kind] ?? raceChoiceData.kind) : "";
@@ -126,7 +180,10 @@ export function getChoicesRequirements(character: CharacterState, datasets: Choi
       ...(raceLangReq > 0 && currentRace ? [`race:${currentRace.id}:${raceLangReq}`] : []),
       ...(bgLangReq > 0 && currentBackground ? [`background:${currentBackground.id}:${bgLangReq}`] : []),
     ]),
-    tools: makeBucket(reqCount(currentBackground?.tools, (v) => TOOL_RX.test(v) && !INSTRUMENT_RX.test(v)) + reqCount(currentClass?.proficiencies.tools, (v) => TOOL_RX.test(v) && !INSTRUMENT_RX.test(v)), selections.tools ?? [], [], []),
+    tools: makeBucket(toolRequiredCount, selections.tools ?? [], toolOptions, [
+      ...backgroundToolRequirements.map((req) => `background:${currentBackground?.id}:${req.subtype}:${req.count}`),
+      ...classToolRequirements.map((req) => `class:${currentClass?.id}:${req.subtype}:${req.count}`),
+    ]),
     instruments: makeBucket(instrumentRequiredCount, selections.instruments ?? [], uniq(instruments.map((i) => ({ id: i.id, name: i.name }))), [
       ...(character.class === "bardo" ? ["class:bardo:3"] : []),
       ...(reqCount(currentBackground?.tools, (v) => INSTRUMENT_RX.test(v)) > 0 && currentBackground ? [`background:${currentBackground.id}:${reqCount(currentBackground?.tools, (v) => INSTRUMENT_RX.test(v))}`] : []),
