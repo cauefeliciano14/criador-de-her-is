@@ -167,6 +167,8 @@ export function validateAllData(datasets: {
     ...validatePlaceholderUsage("races", races),
     ...validateCrossRefs(classes, races, backgrounds, spells, feats),
     ...validateEquipmentChoices(classes),
+    ...validateSourcePages("spells", spells),
+    ...validateSourcePages("feats", feats),
   ];
 
   devAuditStatus = {
@@ -191,4 +193,13 @@ export function logValidation(issues: ValidationIssue[]): void {
 
 export function getDevAuditStatus(): DevAuditStatus {
   return devAuditStatus;
+}
+
+
+function validateSourcePages(dataset: string, entries: any[]): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  for (const entry of entries) {
+    if (entry?.source?.page === 0) issues.push({ severity: "warning", dataset, id: entry.id, message: "source.page=0" });
+  }
+  return issues;
 }

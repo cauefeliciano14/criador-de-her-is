@@ -118,7 +118,7 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
       missing.push({
         id: "class-skills",
         label: `Perícias de classe incompletas (${chosen}/${needed})`,
-        stepId: "choices",
+        stepId: "equipment",
         stepNumber: 5,
         severity: "required",
       });
@@ -179,8 +179,8 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
       const val = cfc[check.key];
       const chosen = Array.isArray(val) ? val.length : (typeof val === "string" ? 1 : 0);
       if (chosen < check.count) {
-        const expertiseStepId = useChoicesStep ? "choices" : "sheet";
-        const expertiseStepNumber = useChoicesStep ? 5 : 6;
+        const expertiseStepId = "equipment";
+        const expertiseStepNumber = 5;
         missing.push({
           id: `expertise-${check.key}`,
           label: `${check.label}: ${chosen}/${check.count} escolhido(s)`,
@@ -239,20 +239,11 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
 
   const choicesReq = getChoicesRequirements(char);
   if (choicesReq.needsStep) {
-    const pending = [
-      choicesReq.skills.pendingCount,
-      choicesReq.languages.pendingCount,
-      choicesReq.tools.pendingCount,
-      choicesReq.instruments.pendingCount,
-      choicesReq.cantrips.pendingCount,
-      choicesReq.spells.pendingCount,
-      choicesReq.raceChoice.pendingCount,
-    ].reduce((a, b) => a + b, 0);
-
+    const pending = Object.values(choicesReq.buckets).reduce((a, b) => a + b.pendingCount, 0);
     missing.push({
       id: "choices-pending",
       label: `Escolhas obrigatórias pendentes (${pending})`,
-      stepId: "choices",
+      stepId: "equipment",
       stepNumber: 5,
       severity: "required",
     });
@@ -262,7 +253,7 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
   if (cls && cls.equipmentChoices.length > 0 && !char.classEquipmentChoice) {
     missing.push({
       id: "equipment-choice",
-      label: "Equipamento inicial (A/B) não escolhido",
+      label: "Equipamento inicial não escolhido",
       stepId: "equipment",
       stepNumber: 5,
       severity: "required",
@@ -282,7 +273,7 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
       missing.push({
         id: "spell-ability",
         label: "Atributo de conjuração não definido",
-        stepId: "choices",
+        stepId: "equipment",
         stepNumber: 5,
         severity: "required",
       });

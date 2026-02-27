@@ -9,8 +9,6 @@ import { CheckCircle2 } from "lucide-react";
 export function StepChoices() {
   const char = useCharacterStore();
   const patchCharacter = useCharacterStore((s) => s.patchCharacter);
-  const completeStep = useBuilderStore((s) => s.completeStep);
-  const uncompleteStep = useBuilderStore((s) => s.uncompleteStep);
 
   const requirements = useMemo(() => getChoicesRequirements(char), [char]);
 
@@ -18,15 +16,10 @@ export function StepChoices() {
     useBuilderStore.getState().updateChoicesRequirements();
   }, [char]);
 
-  useEffect(() => {
-    if (requirements.needsStep) uncompleteStep("choices");
-    else completeStep("choices");
-  }, [requirements.needsStep, completeStep, uncompleteStep]);
-
-  const toggle = (bucket: "languages" | "tools" | "instruments" | "cantrips" | "spells" | "raceChoice" | "skills", id: string) => {
-    const selected = new Set(requirements[bucket].selectedIds);
+  const toggle = (bucket: "classSkills" | "languages" | "tools" | "instruments" | "cantrips" | "spells" | "raceChoice" | "classFeats", id: string) => {
+    const selected = new Set(requirements.buckets[bucket].selectedIds);
     if (selected.has(id)) selected.delete(id);
-    else if (selected.size < requirements[bucket].requiredCount) selected.add(id);
+    else if (selected.size < requirements.buckets[bucket].requiredCount) selected.add(id);
 
     const next = [...selected];
     const choiceSelections = { ...char.choiceSelections };
@@ -35,7 +28,7 @@ export function StepChoices() {
 
     patchCharacter({
       choiceSelections,
-      classSkillChoices: bucket === "skills" ? next : char.classSkillChoices,
+      classSkillChoices: bucket === "classSkills" ? next : char.classSkillChoices,
       spells: {
         ...char.spells,
         cantrips: bucket === "cantrips" ? next : char.spells.cantrips,
@@ -52,13 +45,14 @@ export function StepChoices() {
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <h2 className="text-2xl font-bold">Escolhas</h2>
 
-      <BucketSection title="Perícias" bucket={requirements.skills} onToggle={(id) => toggle("skills", id)} />
-      <BucketSection title="Idiomas" bucket={requirements.languages} onToggle={(id) => toggle("languages", id)} />
-      <BucketSection title="Ferramentas" bucket={requirements.tools} onToggle={(id) => toggle("tools", id)} />
-      <BucketSection title="Instrumentos" bucket={requirements.instruments} onToggle={(id) => toggle("instruments", id)} />
-      <BucketSection title="Truques" bucket={requirements.cantrips} onToggle={(id) => toggle("cantrips", id)} />
-      <BucketSection title="Magias" bucket={requirements.spells} onToggle={(id) => toggle("spells", id)} />
-      <BucketSection title="Escolha Racial" bucket={requirements.raceChoice} onToggle={(id) => toggle("raceChoice", id)} />
+      <BucketSection title="Perícias" bucket={requirements.buckets.classSkills} onToggle={(id) => toggle("classSkills", id)} />
+      <BucketSection title="Idiomas" bucket={requirements.buckets.languages} onToggle={(id) => toggle("languages", id)} />
+      <BucketSection title="Ferramentas" bucket={requirements.buckets.tools} onToggle={(id) => toggle("tools", id)} />
+      <BucketSection title="Instrumentos" bucket={requirements.buckets.instruments} onToggle={(id) => toggle("instruments", id)} />
+      <BucketSection title="Truques" bucket={requirements.buckets.cantrips} onToggle={(id) => toggle("cantrips", id)} />
+      <BucketSection title="Magias" bucket={requirements.buckets.spells} onToggle={(id) => toggle("spells", id)} />
+      <BucketSection title="Escolha Racial" bucket={requirements.buckets.raceChoice} onToggle={(id) => toggle("raceChoice", id)} />
+      <BucketSection title="Talentos de Classe" bucket={requirements.buckets.classFeats} onToggle={(id) => toggle("classFeats", id)} />
 
       {!requirements.needsStep && (
         <div className="flex items-center gap-2 text-primary">

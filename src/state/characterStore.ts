@@ -91,13 +91,16 @@ export interface RaceChoicesState {
 }
 
 export interface ChoiceSelectionsState {
-  skills: string[];
+  classSkills: string[];
   languages: string[];
   tools: string[];
   instruments: string[];
   cantrips: string[];
   spells: string[];
   raceChoice: string | null;
+  classFeats: string[];
+  /** @deprecated legacy key */
+  skills?: string[];
 }
 
 export interface CharacterState {
@@ -178,7 +181,7 @@ const DEFAULT_CHARACTER: CharacterState = {
   appliedFeats: [],
   featAbilityBonuses: { ...DEFAULT_ASI_BONUSES },
   flags: {}, classFeatureChoices: {},
-  choiceSelections: { skills: [], languages: [], tools: [], instruments: [], cantrips: [], spells: [], raceChoice: null },
+  choiceSelections: { classSkills: [], languages: [], tools: [], instruments: [], cantrips: [], spells: [], raceChoice: null, classFeats: [] },
   expertiseSkills: [],
   skillMods: {},
   saveMods: {} as Record<AbilityKey, SaveMod>,
@@ -236,20 +239,22 @@ function instrumentedRecalc(char: CharacterState) {
 
 function sanitizeChoiceSelections(char: CharacterState): CharacterState {
   const req = getChoicesRequirements(char);
+  const buckets = req.buckets;
   const nextSelections = {
-    skills: req.skills.selectedIds,
-    languages: req.languages.selectedIds,
-    tools: req.tools.selectedIds,
-    instruments: req.instruments.selectedIds,
-    cantrips: req.cantrips.selectedIds,
-    spells: req.spells.selectedIds,
-    raceChoice: req.raceChoice.selectedIds[0] ?? null,
+    classSkills: buckets.classSkills.selectedIds,
+    languages: buckets.languages.selectedIds,
+    tools: buckets.tools.selectedIds,
+    instruments: buckets.instruments.selectedIds,
+    cantrips: buckets.cantrips.selectedIds,
+    spells: buckets.spells.selectedIds,
+    raceChoice: buckets.raceChoice.selectedIds[0] ?? null,
+    classFeats: buckets.classFeats.selectedIds,
   };
 
   return {
     ...char,
     choiceSelections: nextSelections,
-    classSkillChoices: nextSelections.skills,
+    classSkillChoices: nextSelections.classSkills,
     spells: { ...char.spells, cantrips: nextSelections.cantrips, prepared: nextSelections.spells },
     raceChoices: {
       ...char.raceChoices,
@@ -301,6 +306,27 @@ export const useCharacterStore = create<CharacterState & CharacterActions>()(
     }),
     {
       name: "dnd-character-2024",
+      version: 3,
+      migrate: (persistedState: any, version) => {
+        if (!persistedState || version >= 3) return persistedState;
+        try {
+          const legacy = persistedState as CharacterState;
+          const old = legacy.choiceSelections as any;
+          legacy.choiceSelections = {
+            classSkills: old?.classSkills ?? old?.skills ?? legacy.classSkillChoices ?? [],
+            languages: old?.languages ?? [],
+            tools: old?.tools ?? [],
+            instruments: old?.instruments ?? [],
+            cantrips: old?.cantrips ?? legacy.spells?.cantrips ?? [],
+            spells: old?.spells ?? legacy.spells?.prepared ?? [],
+            raceChoice: old?.raceChoice ?? legacy.raceChoices?.raceChoice?.optionId ?? null,
+            classFeats: old?.classFeats ?? [],
+          };
+          return legacy;
+        } catch {
+          return { ...DEFAULT_CHARACTER };
+        }
+      },
       storage: throttledStorage,
     }
   )

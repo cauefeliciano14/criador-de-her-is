@@ -10,7 +10,6 @@ export type StepId =
   | "race"
   | "abilities"
   | "equipment"
-  | "choices"
   | "sheet";
 
 export interface StepDef {
@@ -88,21 +87,7 @@ export const useBuilderStore = create<BuilderState>()(
           requiredMissing: { ...s.requiredMissing, [step]: items },
         })),
       resetBuilder: () => set({ ...DEFAULT_BUILDER }),
-      getVisibleSteps: () => {
-        const s = get();
-        if (!s.choicesRequirements?.needsStep) return STEPS;
-        
-        const steps = [...STEPS];
-        const equipmentIndex = steps.findIndex(step => step.id === "equipment");
-        if (equipmentIndex !== -1) {
-          steps.splice(equipmentIndex, 0, { id: "choices", num: 5, label: "Escolhas" });
-          // Re-number steps after choices
-          for (let i = equipmentIndex + 1; i < steps.length; i++) {
-            steps[i].num = i + 1;
-          }
-        }
-        return steps;
-      },
+      getVisibleSteps: () => STEPS,
       updateChoicesRequirements: () => {
         const character = useCharacterStore.getState();
         const requirements = getChoicesRequirements(character);
