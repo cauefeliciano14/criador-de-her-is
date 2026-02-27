@@ -1,7 +1,8 @@
 import { useBuilderStore } from "@/state/builderStore";
 import { useCharacterStore } from "@/state/characterStore";
 import { classes } from "@/data/classes";
-import { spells, getSpellSchools, type SpellData } from "@/data/spells";
+import { getSpellSchools, type SpellData } from "@/data/spells";
+import { spellsByClassId } from "@/data/indexes";
 import {
   ABILITIES,
   calcAbilityMod,
@@ -120,13 +121,12 @@ export function StepSpells() {
   const spellTypeLabel = sc?.type === "known" || sc?.type === "pact" ? "Conhecidas" : "Preparadas";
 
   // ── Available spells for this class ──
-  const className = cls?.name ?? "";
   const classSpells = useMemo(
     () =>
-      spells
-        .filter((s) => s.classes.includes(className))
+      (classId ? spellsByClassId[classId] ?? [] : [])
+        .slice()
         .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
-    [className]
+    [classId]
   );
 
   // ── Filters ──

@@ -12,6 +12,7 @@ import { classes } from "@/data/classes";
 import { backgrounds } from "@/data/backgrounds";
 import { races } from "@/data/races";
 import { validateCatalog } from "@/utils/validateCatalog";
+import { getDevAuditStatus } from "@/utils/validateData";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
 // ── Catalog validation (computed once at module load) ──
@@ -101,6 +102,11 @@ function BuilderContent() {
 
   return (
     <div className="flex min-h-screen flex-col">
+      {import.meta.env.DEV && getDevAuditStatus().totalErrors > 0 && (
+        <div className="bg-destructive text-destructive-foreground text-sm px-4 py-2 text-center">
+          DEV AUDIT: {getDevAuditStatus().totalErrors} erro(s) de dados detectados (produção não bloqueada).
+        </div>
+      )}
       <Header />
       <IdentityHeader />
       <div className="flex flex-1 overflow-hidden">

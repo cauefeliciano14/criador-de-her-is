@@ -1,10 +1,11 @@
 import { create } from "zustand";
 import { persist, type StorageValue } from "zustand/middleware";
-import { type AbilityKey, ABILITIES } from "@/utils/calculations";
+import { type AbilityKey } from "@/utils/calculations";
 import { recalcAll, type SkillMod, type SaveMod, type RulesWarning } from "@/rules/engine/recalcAll";
 import type { InventoryEntry, EquippedState, AttackEntry } from "@/data/items";
 import type { DragonbornHeritageId, ElfLineageId, GnomeLineageId, GiantAncestryId, InfernalLegacyId } from "@/data/races";
 import { perfTime } from "@/utils/perf";
+import { getChoicesRequirements } from "@/utils/choices";
 
 // ── Types ──
 
@@ -89,6 +90,16 @@ export interface RaceChoicesState {
   raceChoice?: { kind: string; optionId: string };
 }
 
+export interface ChoiceSelectionsState {
+  skills: string[];
+  languages: string[];
+  tools: string[];
+  instruments: string[];
+  cantrips: string[];
+  spells: string[];
+  raceChoice: string | null;
+}
+
 export interface CharacterState {
   name: string;
   level: number;
@@ -134,6 +145,7 @@ export interface CharacterState {
   featAbilityBonuses: Record<AbilityKey, number>;
   flags: Record<string, number | boolean>;
   classFeatureChoices: Record<string, string | string[]>;
+  choiceSelections: ChoiceSelectionsState;
   expertiseSkills: string[];
   skillMods: Record<string, SkillMod>;
   saveMods: Record<AbilityKey, SaveMod>;
@@ -165,7 +177,9 @@ const DEFAULT_CHARACTER: CharacterState = {
   gold: { gp: 0 }, attacks: [],
   appliedFeats: [],
   featAbilityBonuses: { ...DEFAULT_ASI_BONUSES },
-  flags: {}, classFeatureChoices: {}, expertiseSkills: [],
+  flags: {}, classFeatureChoices: {},
+  choiceSelections: { skills: [], languages: [], tools: [], instruments: [], cantrips: [], spells: [], raceChoice: null },
+  expertiseSkills: [],
   skillMods: {},
   saveMods: {} as Record<AbilityKey, SaveMod>,
   warnings: [],
@@ -219,6 +233,33 @@ function instrumentedRecalc(char: CharacterState) {
   return perfTime("recalcAll", () => recalcAll(char));
 }
 
+
+function sanitizeChoiceSelections(char: CharacterState): CharacterState {
+  const req = getChoicesRequirements(char);
+  const nextSelections = {
+    skills: req.skills.selectedIds,
+    languages: req.languages.selectedIds,
+    tools: req.tools.selectedIds,
+    instruments: req.instruments.selectedIds,
+    cantrips: req.cantrips.selectedIds,
+    spells: req.spells.selectedIds,
+    raceChoice: req.raceChoice.selectedIds[0] ?? null,
+  };
+
+  return {
+    ...char,
+    choiceSelections: nextSelections,
+    classSkillChoices: nextSelections.skills,
+    spells: { ...char.spells, cantrips: nextSelections.cantrips, prepared: nextSelections.spells },
+    raceChoices: {
+      ...char.raceChoices,
+      raceChoice: nextSelections.raceChoice
+        ? { kind: char.raceChoices.raceChoice?.kind ?? "race", optionId: nextSelections.raceChoice }
+        : undefined,
+    },
+  };
+}
+
 // ── Store ──
 
 interface CharacterActions {
@@ -234,22 +275,22 @@ export const useCharacterStore = create<CharacterState & CharacterActions>()(
     (set, get) => ({
       ...DEFAULT_CHARACTER,
       setField: (key, value) => {
-        const updated = { ...get(), [key]: value };
+        const updated = sanitizeChoiceSelections({ ...get(), [key]: value } as CharacterState);
         const derived = instrumentedRecalc(updated);
-        set({ [key]: value, ...derived } as Partial<CharacterState & CharacterActions>);
+        set({ ...updated, ...derived } as Partial<CharacterState & CharacterActions>);
       },
       patchCharacter: (partial) => {
-        const updated = { ...get(), ...partial };
+        const updated = sanitizeChoiceSelections({ ...get(), ...partial } as CharacterState);
         const derived = instrumentedRecalc(updated);
-        set({ ...partial, ...derived } as Partial<CharacterState & CharacterActions>);
+        set({ ...updated, ...derived } as Partial<CharacterState & CharacterActions>);
       },
       recalc: () => {
-        const derived = instrumentedRecalc(get());
+        const derived = instrumentedRecalc(sanitizeChoiceSelections(get() as CharacterState));
         set(derived as Partial<CharacterState & CharacterActions>);
       },
       resetCharacter: () => set({ ...DEFAULT_CHARACTER }),
       resetAbilities: () => {
-        const updated = { ...get(), abilityScores: { ...DEFAULT_SCORES }, abilityGeneration: { ...DEFAULT_ABILITY_GEN } };
+        const updated = sanitizeChoiceSelections({ ...get(), abilityScores: { ...DEFAULT_SCORES }, abilityGeneration: { ...DEFAULT_ABILITY_GEN } } as CharacterState);
         const derived = instrumentedRecalc(updated);
         set({
           abilityGeneration: { ...DEFAULT_ABILITY_GEN },

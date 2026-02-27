@@ -2,7 +2,8 @@ import type { CharacterState } from "@/state/characterStore";
 import { races } from "@/data/races";
 import { classes } from "@/data/classes";
 import { backgrounds } from "@/data/backgrounds";
-import { calcAbilityMod, getFinalAbilityScores, type AbilityKey, ABILITIES } from "@/utils/calculations";
+import { type AbilityKey } from "@/utils/calculations";
+import { getChoicesRequirements } from "@/utils/choices";
 
 export interface ValidationItem {
   id: string;
@@ -107,8 +108,8 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
       missing.push({
         id: "class-skills",
         label: `Perícias de classe incompletas (${chosen}/${needed})`,
-        stepId: useChoicesStep ? "choices" : "sheet",
-        stepNumber: useChoicesStep ? 6 : 6,
+        stepId: "choices",
+        stepNumber: 5,
         severity: "required",
       });
     }
@@ -223,6 +224,28 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
     }
   }
 
+
+  const choicesReq = getChoicesRequirements(char);
+  if (choicesReq.needsStep) {
+    const pending = [
+      choicesReq.skills.pendingCount,
+      choicesReq.languages.pendingCount,
+      choicesReq.tools.pendingCount,
+      choicesReq.instruments.pendingCount,
+      choicesReq.cantrips.pendingCount,
+      choicesReq.spells.pendingCount,
+      choicesReq.raceChoice.pendingCount,
+    ].reduce((a, b) => a + b, 0);
+
+    missing.push({
+      id: "choices-pending",
+      label: `Escolhas obrigatórias pendentes (${pending})`,
+      stepId: "choices",
+      stepNumber: 5,
+      severity: "required",
+    });
+  }
+
   // 5. Equipment choice
   if (cls && cls.equipmentChoices.length > 0 && !char.classEquipmentChoice) {
     missing.push({
@@ -247,51 +270,12 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
       missing.push({
         id: "spell-ability",
         label: "Atributo de conjuração não definido",
-        stepId: useChoicesStep ? "choices" : "sheet",
-        stepNumber: useChoicesStep ? 6 : 6,
+        stepId: "choices",
+        stepNumber: 5,
         severity: "required",
       });
     }
 
-    // Cantrips limit (with bonus from class features)
-    let cantripsLimit = getCantripsLimit(sc.cantripsKnownAtLevel, char.level);
-    const cfc2 = char.classFeatureChoices ?? {};
-    if (char.class === "clerigo" && cfc2["clerigo:ordemDivina"] === "taumaturgo") cantripsLimit += 1;
-    if (char.class === "druida" && cfc2["druida:ordemPrimal"] === "xama") cantripsLimit += 1;
-
-    if (cantripsLimit > 0 && char.spells.cantrips.length !== cantripsLimit) {
-      missing.push({
-        id: "cantrips-count",
-        label: `Truques: ${char.spells.cantrips.length}/${cantripsLimit} selecionados`,
-        stepId: useChoicesStep ? "choices" : "sheet",
-        stepNumber: useChoicesStep ? 6 : 6,
-        severity: "required",
-      });
-    }
-
-    // Prepared/known limit
-    const finalScores = getFinalAbilityScores(char.abilityScores, char.racialBonuses, char.backgroundBonuses, char.asiBonuses, char.featAbilityBonuses);
-    const scMod = scKey ? calcAbilityMod(finalScores[scKey]) : 0;
-    let spellLimit = 0;
-    if (sc.type === "prepared") {
-      spellLimit = Math.max(1, scMod + char.level);
-    } else if (sc.type === "known" || sc.type === "pact") {
-      const knownTable = (sc as any).spellsKnownAtLevel;
-      if (knownTable) {
-        for (let l = char.level; l >= 1; l--) {
-          if (knownTable[l] !== undefined) { spellLimit = knownTable[l]; break; }
-        }
-      }
-    }
-    if (spellLimit > 0 && char.spells.prepared.length !== spellLimit) {
-      missing.push({
-        id: "spells-count",
-        label: `Magias: ${char.spells.prepared.length}/${spellLimit} selecionadas`,
-        stepId: useChoicesStep ? "choices" : "sheet",
-        stepNumber: useChoicesStep ? 6 : 6,
-        severity: "required",
-      });
-    }
   }
 
   // Inventory warning
@@ -338,9 +322,3 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
   };
 }
 
-function getCantripsLimit(table: Record<number, number>, level: number): number {
-  for (let l = level; l >= 1; l--) {
-    if (table[l] !== undefined) return table[l];
-  }
-  return 0;
-}
