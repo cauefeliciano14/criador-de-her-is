@@ -8,9 +8,10 @@ interface StepHeaderProps {
   stepId: StepId;
   canNext: boolean;
   currentMissing: string[];
+  showEnterHint?: boolean;
 }
 
-export function StepHeader({ stepId, canNext, currentMissing }: StepHeaderProps) {
+export function StepHeader({ stepId, canNext, currentMissing, showEnterHint = false }: StepHeaderProps) {
   const visibleSteps = useBuilderStore((s) => s.getVisibleSteps());
   const nextStep = useBuilderStore((s) => s.nextStep);
   const prevStep = useBuilderStore((s) => s.prevStep);

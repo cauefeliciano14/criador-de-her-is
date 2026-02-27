@@ -285,9 +285,9 @@ export function StepClass() {
   };
 
   return (
-    <div className="flex gap-0 h-full">
+    <div className="flex flex-col md:flex-row gap-0">
       {/* Left - Class list */}
-      <div className="w-72 shrink-0 border-r p-4 overflow-y-auto">
+      <div className="w-full md:w-72 md:shrink-0 border-b md:border-b-0 md:border-r p-4 overflow-y-auto">
         {/* Level Selector */}
         <section className="mb-4">
           <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">
@@ -365,7 +365,7 @@ export function StepClass() {
       </div>
 
       {/* Right - Details */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6">
         {selectedClass ? (
           <ClassDetails
             cls={selectedClass}
@@ -422,7 +422,7 @@ export function StepClass() {
             }}
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-muted-foreground">
+          <div className="flex min-h-[200px] items-center justify-center text-muted-foreground">
             <p>Selecione uma classe na lista ao lado.</p>
           </div>
         )}
@@ -500,7 +500,7 @@ function ClassDetails({
       <div className="mt-6 space-y-4">
         {/* Basic Traits */}
         <Section title="Traços Básicos">
-          <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
             <div>
               <span className="text-muted-foreground">Dado de Vida:</span> d{cls.hitDie}
             </div>
@@ -567,7 +567,7 @@ function ClassDetails({
           <p className="text-sm text-muted-foreground mb-3">
             Escolha {cls.skillChoices.choose} entre as opções abaixo:
           </p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {cls.skillChoices.from
               .sort((a, b) => a.localeCompare(b, "pt-BR"))
               .map((skill) => {
@@ -609,7 +609,7 @@ function ClassDetails({
         {cls.id === "bardo" && (
           <Section title="Instrumentos Musicais (Proficiência)">
             <p className="text-sm text-muted-foreground mb-3">Escolha exatamente 3 instrumentos.</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {instrumentOptions.map((opt) => {
                 const selected = instrumentSelections.includes(opt.id);
                 const disabled = !selected && instrumentSelections.length >= 3;
