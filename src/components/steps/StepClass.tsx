@@ -113,7 +113,7 @@ export function StepClass() {
       }
     }
     return missing;
-  }, [classId, classFeatureChoices]);
+  }, [classId, classFeatureChoices, requirements.buckets.instruments.pendingCount, requirements.buckets.instruments.requiredCount]);
 
   useEffect(() => {
     const missing = computeMissing();
@@ -123,7 +123,7 @@ export function StepClass() {
     } else {
       uncompleteStep("class");
     }
-  }, [classId, classFeatureChoices]);
+  }, [classId, classFeatureChoices, computeMissing, completeStep, setMissing, uncompleteStep]);
 
   // --- Select class ---
   const handleSelect = (id: string) => {
@@ -504,10 +504,22 @@ function ClassDetails({
       <div className="mt-6 space-y-4">
         {/* Basic Traits */}
         <Section title="Traços Básicos">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-            <div>
-              <span className="text-muted-foreground">Dado de Vida:</span> d{cls.hitDie}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+            <div className="rounded-lg border border-primary/35 bg-primary/10 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-primary/90">Atributo Primário</p>
+              <p className="mt-1 text-lg font-bold">{cls.primaryAbility.join(", ")}</p>
             </div>
+            <div className="rounded-lg border border-primary/35 bg-primary/10 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-primary/90">Dado de Vida</p>
+              <p className="mt-1 text-lg font-bold">d{cls.hitDie}</p>
+            </div>
+            <div className="rounded-lg border border-primary/35 bg-primary/10 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-primary/90">Salvaguardas</p>
+              <p className="mt-1 text-lg font-bold">{cls.savingThrows.join(", ")}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
             <div>
               <span className="text-muted-foreground">Pontos de Vida no Nível 1:</span>{" "}
               {cls.hitDie} + modificador de Constituição
@@ -515,14 +527,6 @@ function ClassDetails({
             <div>
               <span className="text-muted-foreground">Pontos de Vida por Nível:</span>{" "}
               d{cls.hitDie} + modificador de Constituição, ou, {avgHitPointsPerLevel} + modificador de Constituição
-            </div>
-            <div>
-              <span className="text-muted-foreground">Atributo Primário:</span>{" "}
-              {cls.primaryAbility.join(", ")}
-            </div>
-            <div>
-              <span className="text-muted-foreground">Salvaguardas:</span>{" "}
-              {cls.savingThrows.join(", ")}
             </div>
             <div>
               <span className="text-muted-foreground">Conjurador:</span>{" "}

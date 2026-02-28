@@ -5,6 +5,7 @@ import { ABILITY_LABELS, ABILITY_SHORT, type AbilityKey } from "@/utils/calculat
 import { CheckCircle2, Search, Info, Star, Package, ChevronDown, ChevronUp } from "lucide-react";
 import { getChoicesRequirements } from "@/utils/choices";
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { commonLanguages } from "@/data/languagesCommon";
 
 export function StepBackground() {
   const [search, setSearch] = useState("");
@@ -26,6 +27,7 @@ export function StepBackground() {
   const requirements = useMemo(() => getChoicesRequirements(char), [char.class, char.race, char.background, char.level, char.choiceSelections, datasetsVersion]);
   const bgLanguageSource = requirements.buckets.languages.sources.find((s) => s.startsWith("background:"));
   const bgLanguageRequired = bgLanguageSource ? Number(bgLanguageSource.split(":").pop()) || 0 : 0;
+  const baseLanguageChoices = 2;
 
   // --- Validation (simplified — bonus moved to ability step) ---
   const computeMissing = useCallback(() => {
@@ -41,11 +43,11 @@ export function StepBackground() {
     if (!hasFeat) {
       missing.push("Talento de Origem não aplicado");
     }
-    if (bgLanguageRequired > 0 && requirements.buckets.languages.pendingCount > 0) {
+    if (requirements.buckets.languages.pendingCount > 0) {
       missing.push(`Escolher idiomas (${requirements.buckets.languages.selectedIds.length}/${requirements.buckets.languages.requiredCount})`);
     }
     return missing;
-  }, [bgId, bgLanguageRequired, requirements.buckets.languages.pendingCount, requirements.buckets.languages.requiredCount, requirements.buckets.languages.selectedIds.length]);
+  }, [bgId, requirements.buckets.languages.pendingCount, requirements.buckets.languages.requiredCount, requirements.buckets.languages.selectedIds.length]);
 
   useEffect(() => {
     const missing = computeMissing();
@@ -55,7 +57,7 @@ export function StepBackground() {
     } else {
       uncompleteStep("origin");
     }
-  }, [bgId, bgLanguageRequired, requirements.buckets.languages.pendingCount, requirements.buckets.languages.requiredCount, requirements.buckets.languages.selectedIds.length]);
+  }, [bgId, computeMissing, completeStep, setMissing, uncompleteStep]);
 
   // --- Select background ---
   const handleSelect = (id: string) => {
@@ -91,7 +93,6 @@ export function StepBackground() {
 
 
   const toggleLanguage = (languageId: string) => {
-    if (bgLanguageRequired <= 0) return;
     const current = new Set(char.choiceSelections.languages ?? []);
     if (current.has(languageId)) current.delete(languageId);
     else if (current.size < requirements.buckets.languages.requiredCount) current.add(languageId);
@@ -147,8 +148,11 @@ export function StepBackground() {
             featExpanded={featExpanded}
             onToggleFeat={() => setFeatExpanded(!featExpanded)}
             bgLanguageRequired={bgLanguageRequired}
+            baseLanguageChoices={baseLanguageChoices}
             languageOptions={requirements.buckets.languages.options}
             selectedLanguages={char.choiceSelections.languages ?? []}
+            selectedCount={requirements.buckets.languages.selectedIds.length}
+            totalRequiredLanguages={requirements.buckets.languages.requiredCount}
             onToggleLanguage={toggleLanguage}
           />
         ) : (
@@ -168,12 +172,15 @@ interface BackgroundDetailsProps {
   featExpanded: boolean;
   onToggleFeat: () => void;
   bgLanguageRequired: number;
+  baseLanguageChoices: number;
   languageOptions: { id: string; name: string }[];
   selectedLanguages: string[];
+  selectedCount: number;
+  totalRequiredLanguages: number;
   onToggleLanguage: (id: string) => void;
 }
 
-function BackgroundDetails({ bg, featExpanded, onToggleFeat, bgLanguageRequired, languageOptions, selectedLanguages, onToggleLanguage }: BackgroundDetailsProps) {
+function BackgroundDetails({ bg, featExpanded, onToggleFeat, bgLanguageRequired, baseLanguageChoices, languageOptions, selectedLanguages, selectedCount, totalRequiredLanguages, onToggleLanguage }: BackgroundDetailsProps) {
   return (
     <div>
       <h2 className="text-2xl font-bold">{bg.name}</h2>
@@ -231,16 +238,35 @@ function BackgroundDetails({ bg, featExpanded, onToggleFeat, bgLanguageRequired,
           </Section>
         )}
 
-        {bgLanguageRequired > 0 && (
-          <Section title="Idiomas (Escolha do Antecedente)">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {languageOptions.map((l) => {
+        <Section title="Idiomas">
+          <p className="text-sm text-muted-foreground mb-2">Comum (fixo)</p>
+          <p className="text-xs text-muted-foreground mb-3">
+            Escolha mais {baseLanguageChoices} idiomas comuns{bgLanguageRequired > 0 ? ` (+${bgLanguageRequired} do antecedente)` : ""}. Selecionados: {selectedCount}/{totalRequiredLanguages}
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {languageOptions
+              .slice()
+              .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+              .map((l) => {
                 const selected = selectedLanguages.includes(l.id);
-                return <button key={l.id} onClick={() => onToggleLanguage(l.id)} className={`rounded border px-2 py-1 text-sm text-left ${selected ? "border-primary bg-primary/10" : "hover:bg-secondary"}`}>{l.name}</button>;
+                const languageInfo = commonLanguages.find((lang) => lang.id === l.id);
+                const disabled = !selected && selectedLanguages.length >= totalRequiredLanguages;
+                return (
+                  <button
+                    key={l.id}
+                    onClick={() => onToggleLanguage(l.id)}
+                    disabled={disabled}
+                    className={`rounded border px-2 py-1 text-sm text-left ${selected ? "border-primary bg-primary/10" : disabled ? "opacity-40 cursor-not-allowed" : "hover:bg-secondary"}`}
+                  >
+                    <span className="font-medium">{l.name}</span>
+                    {languageInfo?.origin && (
+                      <span className="ml-1 text-xs text-muted-foreground">• {languageInfo.origin}</span>
+                    )}
+                  </button>
+                );
               })}
-            </div>
-          </Section>
-        )}
+          </div>
+        </Section>
 
         {/* Origin Feat */}
         <Section title="Talento de Origem" badge={<FeatBadge />}>
