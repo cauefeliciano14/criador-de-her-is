@@ -6,7 +6,7 @@ import { backgrounds } from "@/data/backgrounds";
 import { calcArmorClass, buildAttacks, isArmorProficient } from "@/utils/equipment";
 import { getChoicesRequirements } from "@/utils/choices";
 import { useEffect, useMemo, useState } from "react";
-import { Search, Plus, Minus, Shield, Swords, AlertTriangle, Package, Coins, Trash2, Check, BookOpen } from "lucide-react";
+import { Search, Plus, Minus, Shield, Swords, AlertTriangle, Package, Coins, Trash2, Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -534,24 +534,7 @@ export function StepEquipment() {
         </section>
       )}
 
-      {/* ── Section 4: Spells (if spellcaster) ── */}
-      {isSpellcaster && (
-        <section className="space-y-3">
-          <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-            <BookOpen className="h-4 w-4" />
-            Truques e Magias
-          </h3>
-          <div className="rounded-lg border bg-card p-4">
-            <p className="text-sm text-muted-foreground mb-3">
-              Escolha seus truques e magias conhecidas/preparadas.
-            </p>
-            {/* Placeholder for spells selection */}
-            <p className="text-xs text-muted-foreground">Funcionalidade de magias será implementada aqui.</p>
-          </div>
-        </section>
-      )}
-
-      {/* ── Section 5: Inventory ── */}
+      {/* ── Section 4: Inventory ── */}
       <section className="space-y-3">
         <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
           Inventário ({char.inventory.length} itens)
@@ -616,7 +599,7 @@ export function StepEquipment() {
         )}
       </section>
 
-      {/* ── Section 6: Item Catalog ── */}
+      {/* ── Section 5: Item Catalog ── */}
       <section className="space-y-3">
         <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
           Catálogo de Itens
