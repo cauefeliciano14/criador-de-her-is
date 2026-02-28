@@ -12,6 +12,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 
+function hasAttributeBonus(cls: ClassData): boolean {
+  return Array.isArray(cls.attributeBonus) && cls.attributeBonus.length > 0;
+}
+
 export function StepClass() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -535,6 +539,21 @@ function ClassDetails({
           </div>
         </Section>
 
+        {hasAttributeBonus(cls) && (
+          <Section title="Bônus de atributo">
+            <div className="flex flex-wrap gap-2">
+              {cls.attributeBonus!
+                .slice()
+                .sort((a, b) => a.localeCompare(b, "pt-BR"))
+                .map((bonus) => (
+                  <span key={bonus} className="rounded bg-secondary px-2 py-1 text-xs">
+                    {bonus}
+                  </span>
+                ))}
+            </div>
+          </Section>
+        )}
+
         {/* Armor proficiencies */}
         {cls.proficiencies.armor.length > 0 && (
           <Section title="Proficiências em Armadura">
@@ -867,6 +886,12 @@ function SubclassSection({
           </p>
           <div className="space-y-2">
             {[...cls.subclasses]
+              .filter((sc) => {
+                if (cls.id !== "feiticeiro") return true;
+                const raceLikeNames = new Set(["draconato", "gnomo", "tiferino", "elfo", "golias"]);
+                const normalized = sc.name.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+                return !raceLikeNames.has(normalized);
+              })
               .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
               .map((sc) => {
                 const isSel = subclassId === sc.id;

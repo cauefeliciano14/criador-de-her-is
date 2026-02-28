@@ -51,6 +51,7 @@ export interface ClassData {
   subclasses: SubclassData[];
   subclassLevel?: number;
   asiLevels: number[];
+  attributeBonus?: string[];
 }
 
 // ── Helper: standard spell slots ──
