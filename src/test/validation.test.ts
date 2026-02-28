@@ -36,6 +36,48 @@ describe("validateCharacterCompleteness", () => {
     expect(criticalMissing.filter((m) => m.id === VALIDATION_ITEM_IDS.bgSelect)).toHaveLength(0);
   });
 
+
+
+  it("maps class-skills validation to equipment or choices step based on useChoicesStep", () => {
+    const baseChar = makeCharacter({
+      name: "Class Skills Pending",
+      level: 1,
+      race: "humano",
+      class: "guerreiro",
+      background: "soldado",
+      abilityGeneration: {
+        method: "standard", rolls: null, rollResults: null, pointBuyRemaining: 0,
+        standardAssignments: { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 },
+        rollAssignments: { str: null, dex: null, con: null, int: null, wis: null, cha: null },
+        confirmed: true,
+      },
+      abilityScores: { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 },
+      classSkillChoices: ["Atletismo"],
+      classEquipmentChoice: "A",
+      choiceSelections: {
+        classSkills: ["atletismo"],
+        languages: ["comum"],
+        tools: [],
+        instruments: [],
+        cantrips: [],
+        spells: [],
+        raceChoice: null,
+        classFeats: [],
+      },
+    });
+
+    const withoutChoicesStep = validateCharacterCompleteness(baseChar, false);
+    const classSkillsWithoutChoices = withoutChoicesStep.missing.find((m) => m.id === "class-skills");
+    expect(classSkillsWithoutChoices).toBeDefined();
+    expect(classSkillsWithoutChoices?.stepId).toBe("equipment");
+    expect(classSkillsWithoutChoices?.stepNumber).toBe(5);
+
+    const withChoicesStep = validateCharacterCompleteness(baseChar, true);
+    const classSkillsWithChoices = withChoicesStep.missing.find((m) => m.id === "class-skills");
+    expect(classSkillsWithChoices).toBeDefined();
+    expect(classSkillsWithChoices?.stepId).toBe("choices");
+    expect(classSkillsWithChoices?.stepNumber).toBe(6);
+  });
   it("maps choices pending to equipment or choices step based on useChoicesStep", () => {
     const charWithPendingChoices = makeCharacter({
       name: "Pending Choices",
