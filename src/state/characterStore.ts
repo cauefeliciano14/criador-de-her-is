@@ -314,6 +314,7 @@ interface CharacterActions {
   selectRaceLineage: (lineageId: string | null) => void;
   toggleCantrip: (spellId: string) => void;
   toggleSpell: (spellId: string) => void;
+  togglePreparedSpell: (spellId: string) => void;
 }
 
 function markSavedMeta(): Pick<CharacterState, "lastSavedAt" | "persistError"> {
@@ -385,6 +386,10 @@ export const useCharacterStore = create<CharacterState & CharacterActions>()(
         set({ ...updated, ...derived, ...markSavedMeta() } as Partial<CharacterState & CharacterActions>);
       },
       toggleCantrip: (spellId) => {
+        if (!spellId?.trim()) {
+          console.error("[characterStore] toggleCantrip recebeu spellId inválido", spellId);
+          return;
+        }
         const current = get();
         const selected = new Set(current.spells.cantrips);
         if (selected.has(spellId)) selected.delete(spellId);
@@ -403,6 +408,10 @@ export const useCharacterStore = create<CharacterState & CharacterActions>()(
         set({ ...updated, ...derived, ...markSavedMeta() } as Partial<CharacterState & CharacterActions>);
       },
       toggleSpell: (spellId) => {
+        if (!spellId?.trim()) {
+          console.error("[characterStore] toggleSpell recebeu spellId inválido", spellId);
+          return;
+        }
         const current = get();
         const selected = new Set(current.spells.prepared);
         if (selected.has(spellId)) selected.delete(spellId);
@@ -420,6 +429,7 @@ export const useCharacterStore = create<CharacterState & CharacterActions>()(
         const derived = instrumentedRecalc(updated);
         set({ ...updated, ...derived, ...markSavedMeta() } as Partial<CharacterState & CharacterActions>);
       },
+      togglePreparedSpell: (spellId) => get().toggleSpell(spellId),
     }),
     {
       name: "dnd-character-2024",

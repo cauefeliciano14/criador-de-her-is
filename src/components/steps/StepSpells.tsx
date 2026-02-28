@@ -11,7 +11,7 @@ import {
   ABILITY_LABELS,
 } from "@/utils/calculations";
 import { useEffect, useMemo, useState } from "react";
-import { Search, Plus, Minus, Info, BookOpen, Sparkles, Flame, Eye, X } from "lucide-react";
+import { Search, Plus, Minus, Info, BookOpen, Sparkles, Flame, Eye, X, ChevronDown, ChevronUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -61,7 +61,7 @@ export function StepSpells() {
   const classFeatureChoices = useCharacterStore((s) => s.classFeatureChoices ?? {});
   const spellsState = useCharacterStore((s) => s.spells);
   const toggleCantrip = useCharacterStore((s) => s.toggleCantrip);
-  const togglePreparedSpell = useCharacterStore((s) => s.toggleSpell);
+  const togglePreparedSpell = useCharacterStore((s) => s.togglePreparedSpell);
   const patchCharacter = useCharacterStore((s) => s.patchCharacter);
   const cls = classes.find((c) => c.id === classId);
   const sc = cls?.spellcasting ?? null;
@@ -154,6 +154,7 @@ export function StepSpells() {
   const [filterConcentration, setFilterConcentration] = useState(false);
   const [filterRitual, setFilterRitual] = useState(false);
   const [detailSpell, setDetailSpell] = useState<SpellData | null>(null);
+  const [isSpellsCatalogOpen, setIsSpellsCatalogOpen] = useState(false);
   const PAGE_SIZE = 30;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
@@ -188,10 +189,33 @@ export function StepSpells() {
   // NOTE: We store leveled spells in `spells.prepared` for ALL caster types (prepared/known/pact)
   // to keep the state shape simple for now (levels 1–2 focus).
   const selectedPrepared = spellsState.prepared;
+  const selectedCantripNames = useMemo(() => {
+    const selected = classSpells.filter((spell) => spell.level === 0 && selectedCantrips.includes(spell.id));
+    return selected
+      .map((spell) => spell.name)
+      .sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [classSpells, selectedCantrips]);
+  const selectedPreparedNames = useMemo(() => {
+    const selected = classSpells.filter((spell) => spell.level > 0 && selectedPrepared.includes(spell.id));
+    return selected
+      .map((spell) => spell.name)
+      .sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [classSpells, selectedPrepared]);
+
   const canAddCantrip = selectedCantrips.length < cantripsLimit;
   const canAddPrepared = selectedPrepared.length < preparedLimit;
 
   const toggleSpell = (spell: SpellData) => {
+    if (!spell.id?.trim()) {
+      console.error("[StepSpells] Tentativa de toggle com spell.id inválido", spell);
+      toast({
+        title: "Erro de dados",
+        description: "Esta magia está sem ID válido. Verifique o catálogo.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!selectedClassId || !spellMatchesClass(spell, selectedClassId)) {
       toast({
         title: "Magia incompatível",
@@ -201,13 +225,15 @@ export function StepSpells() {
       return;
     }
 
+    const selected = isSelected(spell.id, spell.level);
+
     if (spell.level === 0) {
-      if (!canAddCantrip) return;
+      if (!selected && !canAddCantrip) return;
       toggleCantrip(spell.id);
       return;
     }
 
-    if (!canAddPrepared) return;
+    if (!selected && !canAddPrepared) return;
     togglePreparedSpell(spell.id);
   };
 
@@ -342,172 +368,175 @@ export function StepSpells() {
         );
       })()}
 
-      {/* Filters */}
-      <div className="space-y-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar magia..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {/* Level chips */}
-          {availableLevels.map((l) => (
+      {/* Spell Catalog */}
+      <section className="space-y-3">
+        <div className="rounded-lg border bg-card">
+          <div className="flex items-center justify-between gap-3 p-3">
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+                Catálogo de Magias
+              </h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Truques {selectedCantrips.length}/{cantripsLimit} • Magias {selectedPrepared.length}/{preparedLimit}
+              </p>
+              {!isSpellsCatalogOpen && (
+                <div className="mt-2 space-y-1">
+                  <CollapsedSummary label="Truques" selected={selectedCantripNames} limit={cantripsLimit} />
+                  <CollapsedSummary label={`Magias ${spellTypeLabel}`} selected={selectedPreparedNames} limit={preparedLimit} />
+                </div>
+              )}
+            </div>
             <button
-              key={l}
-              onClick={() => setFilterLevel(filterLevel === l ? null : l)}
-              className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
-                filterLevel === l
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-secondary text-secondary-foreground border-border hover:bg-secondary/80"
-              }`}
+              type="button"
+              aria-label={isSpellsCatalogOpen ? "Minimizar catálogo de magias" : "Expandir catálogo de magias"}
+              onClick={() => setIsSpellsCatalogOpen((open) => !open)}
+              className="inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-secondary"
             >
-              {LEVEL_LABELS[l] ?? `${l}º`}
+              {isSpellsCatalogOpen ? "Minimizar" : "Ver catálogo"}
+              {isSpellsCatalogOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
             </button>
-          ))}
+          </div>
 
-          {/* School select */}
-          <select
-            value={filterSchool ?? ""}
-            onChange={(e) => setFilterSchool(e.target.value || null)}
-            className="rounded-full px-3 py-1 text-xs font-medium border bg-secondary text-secondary-foreground"
-          >
-            <option value="">Escola</option>
-            {schools.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
+          {isSpellsCatalogOpen && (
+            <div className="space-y-3 border-t p-3">
+              <div className="flex flex-wrap gap-2 items-center">
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar magia..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-9 h-9"
+                  />
+                </div>
+                <div className="flex gap-1 flex-wrap">
+                  {availableLevels.map((l) => (
+                    <FilterChip
+                      key={l}
+                      active={filterLevel === l}
+                      onClick={() => setFilterLevel(filterLevel === l ? null : l)}
+                    >
+                      {LEVEL_LABELS[l] ?? `${l}º`}
+                    </FilterChip>
+                  ))}
+                  <select
+                    value={filterSchool ?? ""}
+                    onChange={(e) => setFilterSchool(e.target.value || null)}
+                    className="rounded-full px-3 py-1 text-xs font-medium border bg-secondary text-secondary-foreground"
+                  >
+                    <option value="">Escola</option>
+                    {schools.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                  <FilterChip active={filterConcentration} onClick={() => setFilterConcentration((v) => !v)}>
+                    <Eye className="h-3 w-3" /> Concentração
+                  </FilterChip>
+                  <FilterChip active={filterRitual} onClick={() => setFilterRitual((v) => !v)}>
+                    <Flame className="h-3 w-3" /> Ritual
+                  </FilterChip>
+                  {(filterLevel !== null || filterSchool || filterConcentration || filterRitual || search) && (
+                    <button
+                      onClick={() => {
+                        setFilterLevel(null);
+                        setFilterSchool(null);
+                        setFilterConcentration(false);
+                        setFilterRitual(false);
+                        setSearch("");
+                      }}
+                      className="rounded-full px-3 py-1 text-xs font-medium border border-destructive/30 text-destructive hover:bg-destructive/10 flex items-center gap-1"
+                    >
+                      <X className="h-3 w-3" /> Limpar
+                    </button>
+                  )}
+                </div>
+              </div>
 
-          {/* Toggles */}
-          <button
-            onClick={() => setFilterConcentration(!filterConcentration)}
-            className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors flex items-center gap-1 ${
-              filterConcentration
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-secondary text-secondary-foreground border-border hover:bg-secondary/80"
-            }`}
-          >
-            <Eye className="h-3 w-3" /> Concentração
-          </button>
-          <button
-            onClick={() => setFilterRitual(!filterRitual)}
-            className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors flex items-center gap-1 ${
-              filterRitual
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-secondary text-secondary-foreground border-border hover:bg-secondary/80"
-            }`}
-          >
-            <Flame className="h-3 w-3" /> Ritual
-          </button>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 max-h-[420px] overflow-y-auto pr-1">
+                {filtered.length === 0 && (
+                  <p className="col-span-full text-sm text-muted-foreground text-center py-8">
+                    Nenhuma magia encontrada para os filtros selecionados.
+                  </p>
+                )}
+                {visibleSpells.map((spell) => {
+                  const selected = isSelected(spell.id, spell.level);
+                  const atLimit = spell.level === 0
+                    ? selectedCantrips.length >= cantripsLimit
+                    : selectedPrepared.length >= preparedLimit;
+                  const disabled = !selected && atLimit;
 
-          {(filterLevel !== null || filterSchool || filterConcentration || filterRitual || search) && (
-            <button
-              onClick={() => {
-                setFilterLevel(null);
-                setFilterSchool(null);
-                setFilterConcentration(false);
-                setFilterRitual(false);
-                setSearch("");
-              }}
-              className="rounded-full px-3 py-1 text-xs font-medium border border-destructive/30 text-destructive hover:bg-destructive/10 flex items-center gap-1"
-            >
-              <X className="h-3 w-3" /> Limpar
-            </button>
+                  return (
+                    <div
+                      key={spell.id}
+                      className={`rounded-lg border p-3 flex items-center gap-3 transition-colors cursor-pointer ${
+                        selected
+                          ? "border-primary bg-primary/10"
+                          : disabled
+                          ? "opacity-40 cursor-not-allowed"
+                          : "bg-card hover:bg-secondary/50"
+                      }`}
+                      onClick={() => !disabled && toggleSpell(spell)}
+                    >
+                      <button
+                        disabled={disabled}
+                        title={disabled ? "Limite atingido" : selected ? "Remover" : "Adicionar"}
+                        aria-label={selected ? "Remover magia" : "Adicionar magia"}
+                        className={`shrink-0 rounded-full h-8 w-8 flex items-center justify-center border transition-colors ${
+                          selected
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "border-border text-muted-foreground hover:border-primary/50"
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!disabled) toggleSpell(spell);
+                        }}
+                      >
+                        {selected ? <Minus className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                      </button>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-sm">{spell.name}</span>
+                          <Badge variant="outline" className="text-[10px]">{LEVEL_LABELS[spell.level]}</Badge>
+                          <Badge variant="secondary" className="text-[10px]">{spell.school}</Badge>
+                          {spell.concentration && <Badge variant="secondary" className="text-[10px]">C</Badge>}
+                          {spell.ritual && <Badge variant="secondary" className="text-[10px]">R</Badge>}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{spell.description}</p>
+                      </div>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDetailSpell(spell);
+                        }}
+                        className="shrink-0 text-muted-foreground hover:text-foreground"
+                      >
+                        <Info className="h-4 w-4" />
+                      </button>
+                    </div>
+                  );
+                })}
+
+                {visibleCount < filtered.length && (
+                  <button
+                    onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                    className="col-span-full rounded-lg border border-dashed py-2 text-sm text-muted-foreground hover:bg-secondary/50 transition-colors"
+                  >
+                    Mostrar mais ({filtered.length - visibleCount} restantes)
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {!isSpellsCatalogOpen && (
+            <div className="border-t px-3 py-2 text-xs text-muted-foreground">
+              Clique em <span className="font-medium">Ver catálogo</span> para buscar e selecionar magias.
+            </div>
           )}
         </div>
-      </div>
-
-      {/* Spell List */}
-      <div className="space-y-2">
-        {filtered.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            Nenhuma magia encontrada para os filtros selecionados.
-          </p>
-        ) : (
-          visibleSpells.map((spell) => {
-            const selected = isSelected(spell.id, spell.level);
-            const atLimit = spell.level === 0
-              ? selectedCantrips.length >= cantripsLimit
-              : selectedPrepared.length >= preparedLimit;
-            const disabled = !selected && atLimit;
-
-            return (
-              <div
-                key={spell.id}
-                className={`rounded-lg border p-3 flex items-center gap-3 transition-colors cursor-pointer ${
-                  selected
-                    ? "border-primary bg-primary/10"
-                    : disabled
-                    ? "opacity-40 cursor-not-allowed"
-                    : "bg-card hover:bg-secondary/50"
-                }`}
-                onClick={() => !disabled && toggleSpell(spell)}
-              >
-                {/* Toggle button */}
-                <button
-                  disabled={disabled}
-                  title={disabled ? "Limite atingido" : selected ? "Remover" : "Adicionar"}
-                  aria-label={selected ? "Remover magia" : "Adicionar magia"}
-                  className={`shrink-0 rounded-full h-8 w-8 flex items-center justify-center border transition-colors ${
-                    selected
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "border-border text-muted-foreground hover:border-primary/50"
-                  }`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (!disabled) toggleSpell(spell);
-                  }}
-                >
-                  {selected ? <Minus className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                </button>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-sm">{spell.name}</span>
-                    <Badge variant="outline" className="text-[10px]">
-                      {LEVEL_LABELS[spell.level]}
-                    </Badge>
-                    <Badge variant="secondary" className="text-[10px]">
-                      {spell.school}
-                    </Badge>
-                    {spell.concentration && (
-                      <Badge variant="secondary" className="text-[10px]">C</Badge>
-                    )}
-                    {spell.ritual && (
-                      <Badge variant="secondary" className="text-[10px]">R</Badge>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{spell.description}</p>
-                </div>
-
-                {/* Detail button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDetailSpell(spell);
-                  }}
-                  className="shrink-0 text-muted-foreground hover:text-foreground"
-                >
-                  <Info className="h-4 w-4" />
-                </button>
-              </div>
-            );
-          })
-        )}
-        {visibleCount < filtered.length && (
-          <button
-            onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
-            className="w-full rounded-lg border border-dashed py-2 text-sm text-muted-foreground hover:bg-secondary/50 transition-colors"
-          >
-            Mostrar mais ({filtered.length - visibleCount} restantes)
-          </button>
-        )}
-      </div>
+      </section>
 
       {/* Spell Detail Dialog */}
       <Dialog open={!!detailSpell} onOpenChange={() => setDetailSpell(null)}>
@@ -597,6 +626,43 @@ function CounterChip({
       <span>
         {label}: {current}/{max}
       </span>
+    </div>
+  );
+}
+
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors flex items-center gap-1 ${
+        active
+          ? "bg-primary text-primary-foreground border-primary"
+          : "bg-secondary text-secondary-foreground border-border hover:bg-secondary/80"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function CollapsedSummary({ label, selected, limit }: { label: string; selected: string[]; limit: number }) {
+  return (
+    <div>
+      <p className="text-[11px] text-muted-foreground">{label} {selected.length}/{limit}</p>
+      <div className="mt-1 flex flex-wrap gap-1">
+        {selected.length > 0 ? selected.slice(0, 4).map((name) => (
+          <Badge key={name} variant="secondary" className="text-[10px]">{name}</Badge>
+        )) : <span className="text-[11px] text-muted-foreground">Nenhuma selecionada.</span>}
+        {selected.length > 4 && <Badge variant="outline" className="text-[10px]">+{selected.length - 4}</Badge>}
+      </div>
     </div>
   );
 }
