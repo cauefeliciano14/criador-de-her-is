@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "validate:spells": "node scripts/validateSpells.mjs"
+    "validate:spells": "python3 scripts/validate_spells.py",
+    "generate:spells": "python3 scripts/generate_spells_2024.py"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

@@ -10,6 +10,7 @@ export { backgrounds, backgroundsById, type Background, type OriginFeat } from "
 export { spells, getSpellSchools, type SpellData } from "./spells";
 export { items, itemsById, type Item, type AttackEntry, type InventoryEntry, type EquippedState } from "./items";
 export { feats, featsById, type FeatData, type FeatPrerequisite, type FeatEffects } from "./feats";
+export { tools, toolsByName, type ToolData } from "./tools";
 export { skills, skillsById, skillsByName, type SkillData } from "./skills";
 export { sources, sourcesById, type Source } from "./sources";
 
