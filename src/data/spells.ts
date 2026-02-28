@@ -12,6 +12,8 @@ export interface SpellData {
   classes: string[];
   classIds?: string[];
   description: string;
+  atHigherLevels?: string;
+  cantripUpgrade?: string;
   source: { book: string; page: number };
 }
 

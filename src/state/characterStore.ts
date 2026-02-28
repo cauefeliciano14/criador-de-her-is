@@ -84,6 +84,14 @@ export interface AppliedFeat {
 
 export type RaceChoicesState = Record<string, string>;
 
+export interface OriginSelectionState {
+  background: string | null;
+  skillsGranted: string[];
+  toolGranted: string | null;
+  originFeat: string | null;
+  startingEquipment: "A" | "B" | null;
+}
+
 export interface ChoiceSelectionsState {
   classSkills: string[];
   languages: string[];
@@ -108,6 +116,8 @@ export interface CharacterState {
   class: string | null;
   subclass: string | null;
   background: string | null;
+  backgroundToolChoice: string | null;
+  origin: OriginSelectionState;
   abilityGeneration: AbilityGeneration;
   abilityScores: Record<AbilityKey, number>;
   racialBonuses: Record<AbilityKey, number>;
@@ -161,7 +171,8 @@ export interface CharacterState {
 const DEFAULT_CHARACTER: CharacterState = {
   lastSavedAt: null,
   persistError: null,
-  name: "", level: 1, race: null, raceLineage: null, subrace: null, class: null, subclass: null, background: null,
+  name: "", level: 1, race: null, raceLineage: null, subrace: null, class: null, subclass: null, background: null, backgroundToolChoice: null,
+  origin: { background: null, skillsGranted: [], toolGranted: null, originFeat: null, startingEquipment: null },
   abilityGeneration: { ...DEFAULT_ABILITY_GEN },
   abilityScores: { ...DEFAULT_SCORES },
   racialBonuses: { ...DEFAULT_RACIAL },
@@ -307,6 +318,7 @@ interface CharacterActions {
   selectRaceLineage: (lineageId: string | null) => void;
   toggleCantrip: (spellId: string) => void;
   toggleSpell: (spellId: string) => void;
+  togglePreparedSpell: (spellId: string) => void;
 }
 
 function markSavedMeta(): Pick<CharacterState, "lastSavedAt" | "persistError"> {
@@ -378,6 +390,10 @@ export const useCharacterStore = create<CharacterState & CharacterActions>()(
         set({ ...updated, ...derived, ...markSavedMeta() } as Partial<CharacterState & CharacterActions>);
       },
       toggleCantrip: (spellId) => {
+        if (!spellId?.trim()) {
+          console.error("[characterStore] toggleCantrip recebeu spellId inválido", spellId);
+          return;
+        }
         const current = get();
         const selected = new Set(current.spells.cantrips);
         if (selected.has(spellId)) selected.delete(spellId);
@@ -396,6 +412,10 @@ export const useCharacterStore = create<CharacterState & CharacterActions>()(
         set({ ...updated, ...derived, ...markSavedMeta() } as Partial<CharacterState & CharacterActions>);
       },
       toggleSpell: (spellId) => {
+        if (!spellId?.trim()) {
+          console.error("[characterStore] toggleSpell recebeu spellId inválido", spellId);
+          return;
+        }
         const current = get();
         const selected = new Set(current.spells.prepared);
         if (selected.has(spellId)) selected.delete(spellId);
@@ -413,6 +433,7 @@ export const useCharacterStore = create<CharacterState & CharacterActions>()(
         const derived = instrumentedRecalc(updated);
         set({ ...updated, ...derived, ...markSavedMeta() } as Partial<CharacterState & CharacterActions>);
       },
+      togglePreparedSpell: (spellId) => get().toggleSpell(spellId),
     }),
     {
       name: "dnd-character-2024",

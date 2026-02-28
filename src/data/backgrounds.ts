@@ -27,6 +27,7 @@ export interface Background {
   abilityBonuses: { mode: "choose" };
   /** Compat legada */
   skills: string[];
+  grantedSkills: string[];
   tools: string[];
   originFeat: { id: string; name: string; description: string };
   /** Compat legada para a etapa de equipamento */
@@ -61,6 +62,33 @@ function makeBackground(input: Omit<Background, "abilityBonuses" | "equipmentCho
     ],
   };
 }
+
+const mk = (
+  id: string,
+  name: string,
+  abilityScores: AbilityKey[],
+  grantedSkills: [string, string],
+  grantedTool: ToolGrant,
+  originFeat: OriginFeat,
+  optionA: { items: string[]; gold: number }
+): Background => ({
+  id,
+  name,
+  description: `Antecedente ${name} do Livro do Jogador 2024.`,
+  abilityOptions: abilityScores,
+  abilityScores,
+  skills: grantedSkills,
+  grantedSkills,
+  tools: grantedTool.mode === "fixed" ? [grantedTool.name ?? ""] : [grantedTool.choiceLabel ?? "Escolha 1 ferramenta"],
+  grantedTool,
+  languages: [],
+  originFeat,
+  equipmentChoices: [
+    { id: "A", label: "Opção A", items: optionA.items, gold: optionA.gold },
+    { id: "B", label: "Opção B", items: [], gold: 50 },
+  ],
+  equipment: { items: optionA.items, gold: optionA.gold },
+});
 
 export const backgrounds: Background[] = [
   makeBackground({
