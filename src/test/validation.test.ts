@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validateCharacterCompleteness } from "@/utils/validation";
+import { VALIDATION_ITEM_IDS, validateCharacterCompleteness } from "@/utils/validation";
 import { INCOMPLETE_CHAR, FIGHTER_HUMAN_L1, MISSING_SUBRACE, WIZARD_ELF_L1, makeCharacter } from "@/test/fixtures";
 
 describe("validateCharacterCompleteness", () => {
@@ -7,23 +7,23 @@ describe("validateCharacterCompleteness", () => {
     const result = validateCharacterCompleteness(INCOMPLETE_CHAR);
     expect(result.isComplete).toBe(false);
     expect(result.missing.length).toBeGreaterThan(0);
-    expect(result.missing.some((m) => m.id === "ability-method")).toBe(true);
-    expect(result.missing.some((m) => m.id === "race-select")).toBe(true);
-    expect(result.missing.some((m) => m.id === "class-select")).toBe(true);
-    expect(result.missing.some((m) => m.id === "bg-select")).toBe(true);
+    expect(result.missing.some((m) => m.id === VALIDATION_ITEM_IDS.abilityMethod)).toBe(true);
+    expect(result.missing.some((m) => m.id === VALIDATION_ITEM_IDS.raceSelect)).toBe(true);
+    expect(result.missing.some((m) => m.id === VALIDATION_ITEM_IDS.classSelect)).toBe(true);
+    expect(result.missing.some((m) => m.id === VALIDATION_ITEM_IDS.bgSelect)).toBe(true);
   });
 
   it("missing items have correct stepNumber", () => {
     const result = validateCharacterCompleteness(INCOMPLETE_CHAR);
-    const raceMissing = result.missing.find((m) => m.id === "race-select");
+    const raceMissing = result.missing.find((m) => m.id === VALIDATION_ITEM_IDS.raceSelect);
     expect(raceMissing?.stepNumber).toBe(3);
-    const classMissing = result.missing.find((m) => m.id === "class-select");
+    const classMissing = result.missing.find((m) => m.id === VALIDATION_ITEM_IDS.classSelect);
     expect(classMissing?.stepNumber).toBe(1);
   });
 
   it("does not require subrace when race has no subraces", () => {
     const result = validateCharacterCompleteness(MISSING_SUBRACE);
-    expect(result.missing.some((m) => m.id === "subrace-select")).toBe(false);
+    expect(result.missing.some((m) => m.id === VALIDATION_ITEM_IDS.subraceSelect)).toBe(false);
   });
 
   it("fighter with all choices is mostly complete", () => {
@@ -31,9 +31,9 @@ describe("validateCharacterCompleteness", () => {
     const criticalMissing = result.missing.filter(
       (m) => !["equipment-choice"].includes(m.id)
     );
-    expect(criticalMissing.filter((m) => m.id === "race-select")).toHaveLength(0);
-    expect(criticalMissing.filter((m) => m.id === "class-select")).toHaveLength(0);
-    expect(criticalMissing.filter((m) => m.id === "bg-select")).toHaveLength(0);
+    expect(criticalMissing.filter((m) => m.id === VALIDATION_ITEM_IDS.raceSelect)).toHaveLength(0);
+    expect(criticalMissing.filter((m) => m.id === VALIDATION_ITEM_IDS.classSelect)).toHaveLength(0);
+    expect(criticalMissing.filter((m) => m.id === VALIDATION_ITEM_IDS.bgSelect)).toHaveLength(0);
   });
 
   it("maps choices pending to equipment or choices step based on useChoicesStep", () => {
@@ -65,13 +65,13 @@ describe("validateCharacterCompleteness", () => {
     });
 
     const withoutChoicesStep = validateCharacterCompleteness(charWithPendingChoices, false);
-    const withoutChoicesPending = withoutChoicesStep.missing.find((m) => m.id === "choices-pending");
+    const withoutChoicesPending = withoutChoicesStep.missing.find((m) => m.id === VALIDATION_ITEM_IDS.choicesPending);
     expect(withoutChoicesPending).toBeDefined();
     expect(withoutChoicesPending?.stepId).toBe("equipment");
     expect(withoutChoicesPending?.stepNumber).toBe(5);
 
     const withChoicesStep = validateCharacterCompleteness(charWithPendingChoices, true);
-    const withChoicesPending = withChoicesStep.missing.find((m) => m.id === "choices-pending");
+    const withChoicesPending = withChoicesStep.missing.find((m) => m.id === VALIDATION_ITEM_IDS.choicesPending);
     expect(withChoicesPending).toBeDefined();
     expect(withChoicesPending?.stepId).toBe("choices");
     expect(withChoicesPending?.stepNumber).toBe(6);
@@ -83,7 +83,8 @@ describe("validateCharacterCompleteness", () => {
       spells: { ...WIZARD_ELF_L1.spells, cantrips: [], prepared: [] },
     };
     const result = validateCharacterCompleteness(wizNoSpells);
-    expect(result.missing.some((m) => m.id === "cantrips-count")).toBe(true);
+    expect(result.missing.some((m) => m.id === VALIDATION_ITEM_IDS.cantripsCount)).toBe(true);
+    expect(result.missing.some((m) => m.id === VALIDATION_ITEM_IDS.spellsCount)).toBe(true);
   });
 
   // ── Cleric/Druid Order validation ──
