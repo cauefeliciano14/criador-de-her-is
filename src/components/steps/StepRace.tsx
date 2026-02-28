@@ -7,6 +7,7 @@ import { ABILITY_LABELS, ABILITY_SHORT, type AbilityKey } from "@/utils/calculat
 import { CheckCircle2, Search, Info, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { getCanonicalRaceChoiceKeyFromSources, getChoicesRequirements } from "@/utils/choices";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 
 export function StepRace() {
   const [search, setSearch] = useState("");

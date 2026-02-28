@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import {
   Info, CheckCircle2, Wand2, Swords, Coins, Package,
   Activity, AlertTriangle,
@@ -75,34 +75,6 @@ export function SummaryPanel() {
     [abilityScores, racialBonuses, backgroundBonuses, asiBonuses, featAbilityBonuses]
   );
 
-  const [activeTab, setActiveTab] = useState("stats");
-  const [visibleSkills, setVisibleSkills] = useState(18);
-  const [visibleCantrips, setVisibleCantrips] = useState(12);
-  const [visiblePreparedSpells, setVisiblePreparedSpells] = useState(12);
-  const [visibleInventoryItems, setVisibleInventoryItems] = useState(14);
-
-  const spellsById = useMemo(
-    () => Object.fromEntries(spellsData.map((spell) => [spell.id, spell])),
-    []
-  );
-  const sortedLanguages = useMemo(
-    () => [...char.proficiencies.languages].sort((a, b) => a.localeCompare(b, "pt-BR")),
-    [char.proficiencies.languages]
-  );
-  const visibleSkillsList = useMemo(() => ALL_SKILLS.slice(0, visibleSkills), [visibleSkills]);
-  const visibleCantripsList = useMemo(
-    () => char.spells.cantrips.slice(0, visibleCantrips),
-    [char.spells.cantrips, visibleCantrips]
-  );
-  const visiblePreparedList = useMemo(
-    () => char.spells.prepared.slice(0, visiblePreparedSpells),
-    [char.spells.prepared, visiblePreparedSpells]
-  );
-  const visibleInventoryList = useMemo(
-    () => char.inventory.slice(0, visibleInventoryItems),
-    [char.inventory, visibleInventoryItems]
-  );
-
   return (
     <aside className="w-full xl:w-72 shrink-0 border-l flex flex-col overflow-hidden">
       <div className="border-b bg-card p-3">
@@ -135,7 +107,6 @@ export function SummaryPanel() {
           {race && <MiniTag>{race.name}{subrace ? ` (${subrace.name})` : ""}</MiniTag>}
           {cls && <MiniTag>{cls.name} {level}</MiniTag>}
           {bg && <MiniTag>{bg.name}</MiniTag>}
-          {hasPlannedRaceContent(race) && <Badge variant="outline" className="text-[10px] h-5">Em desenvolvimento</Badge>}
           {!race && !cls && <span className="text-[11px] text-muted-foreground italic">Nenhuma escolha feita</span>}
         </div>
       </div>
@@ -167,131 +138,17 @@ export function SummaryPanel() {
 
         <ScrollArea className="flex-1">
           <TabsContent value="stats" className="m-0 p-3 space-y-3">
-            {/* Ability Scores */}
-            <div className="grid grid-cols-3 gap-1.5">
-              {ABILITIES.map((a) => {
-                const total = finalScores[a];
-                const mod = calcAbilityMod(total);
-                return (
-                  <div key={a} className="rounded-lg border bg-secondary/30 p-2 text-center">
-                    <p className="text-[11px] uppercase text-muted-foreground font-semibold tracking-wider">
-                      {ABILITY_SHORT[a]}
-                    </p>
-                    <p className="text-lg font-bold leading-tight">{total}</p>
-                    <p className={`text-xs font-semibold ${mod >= 0 ? "text-success" : "text-destructive"}`}>
-                      {mod >= 0 ? "+" : ""}{mod}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Saving Throws */}
-            <PanelSection title="Salvaguardas">
-              <div className="grid grid-cols-2 gap-1">
-                {ABILITIES.map((a) => {
-                  const mod = calcAbilityMod(finalScores[a]);
-                  const prof = char.savingThrows.some(
-                    (st) => st.toLowerCase().startsWith(ABILITY_SHORT[a].toLowerCase().substring(0, 3))
-                  );
-                  const total = mod + (prof ? char.proficiencyBonus : 0);
-                  return (
-                    <div key={a} className={`flex items-center gap-1.5 text-xs py-0.5 ${prof ? "text-foreground" : "text-muted-foreground"}`}>
-                      {prof ? (
-                        <CheckCircle2 className="h-3 w-3 text-success shrink-0" />
-                      ) : (
-                        <span className="h-3 w-3 rounded-full border border-muted-foreground/30 shrink-0" />
-                      )}
-                      <span className="flex-1">{ABILITY_SHORT[a]}</span>
-                      <span className={`font-mono font-bold text-[11px] ${prof ? "text-primary" : ""}`}>
-                        {total >= 0 ? "+" : ""}{total}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </PanelSection>
-
-            {/* Skills */}
-            <PanelSection title="Perícias">
-              <div className="space-y-0.5">
-                {visibleSkillsList.map((skill) => {
-                  const mod = calcAbilityMod(finalScores[skill.ability]);
-                  const prof = char.skills.includes(skill.name);
-                  const total = mod + (prof ? char.proficiencyBonus : 0);
-                  return (
-                    <div key={skill.name} className={`flex items-center gap-1.5 text-[11px] py-0.5 ${prof ? "text-foreground" : "text-muted-foreground/60"}`}>
-                      {prof ? (
-                        <CheckCircle2 className="h-2.5 w-2.5 text-success shrink-0" />
-                      ) : (
-                        <span className="h-2.5 w-2.5 rounded-full border border-muted-foreground/20 shrink-0" />
-                      )}
-                      <span className="flex-1 truncate">{skill.name}</span>
-                      <span className="text-[11px] text-muted-foreground/70 mr-1 font-medium">{ABILITY_SHORT[skill.ability]}</span>
-                      <span className={`font-mono font-bold text-[11px] w-5 text-right ${prof ? "" : "text-muted-foreground/40"}`}>
-                        {total >= 0 ? "+" : ""}{total}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-              {ALL_SKILLS.length > visibleSkills && (
-                <button
-                  type="button"
-                  onClick={() => setVisibleSkills((v) => v + 12)}
-                  className="mt-1 text-[11px] font-medium text-primary hover:underline"
-                >
-                  Mostrar mais perícias ({ALL_SKILLS.length - visibleSkills} restantes)
-                </button>
-              )}
-            </PanelSection>
-
-            {/* Languages & Proficiencies */}
-            {char.proficiencies.languages.length > 0 && (
-              <PanelSection title="Idiomas">
-                <div className="flex flex-wrap gap-1">
-                  {sortedLanguages.map((l) => (
-                    <span key={l} className="rounded bg-secondary px-1.5 py-0.5 text-[11px] font-medium">{l}</span>
-                  ))}
-                </div>
-              </PanelSection>
-            )}
-
-            {/* Pendencies */}
-            <PanelSection title="Pendências">
-              <ul className="space-y-1">
-                {visibleSteps.map((step) => {
-                  const isDone = completedSteps.includes(step.id);
-                  const missing = requiredMissing[step.id] ?? [];
-                  return (
-                    <li key={step.id}>
-                      <button
-                        onClick={() => goToStep(step.id)}
-                        className="flex items-start gap-1.5 w-full text-left hover:bg-secondary/50 rounded px-1 py-0.5 transition-colors"
-                        aria-label={`Ir para ${step.label}`}
-                      >
-                        {isDone ? (
-                          <CheckCircle2 className="h-3 w-3 text-success mt-0.5 shrink-0" />
-                        ) : (
-                          <Info className="h-3 w-3 text-info mt-0.5 shrink-0" />
-                        )}
-                        <div className="min-w-0">
-                          <span className={`text-xs font-medium ${isDone ? "text-success" : "text-info"}`}>
-                            {step.num}. {step.label}
-                          </span>
-                          {!isDone && missing.length > 0 && (
-                            <p className="text-[11px] text-muted-foreground/90 truncate">
-                              {missing[0]}
-                              {missing.length > 1 && ` (+${missing.length - 1})`}
-                            </p>
-                          )}
-                        </div>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </PanelSection>
+            <StatsTab
+              finalScores={finalScores}
+              proficiencyBonus={proficiencyBonus}
+              savingThrows={savingThrows}
+              skills={skills}
+              languages={languages}
+              visibleSteps={visibleSteps}
+              completedSteps={completedSteps}
+              requiredMissing={requiredMissing}
+              goToStep={goToStep}
+            />
           </TabsContent>
 
           <TabsContent value="actions" className="m-0 p-3 space-y-3">
@@ -535,68 +392,21 @@ const ActionsTab = memo(function ActionsTab({ attacks, features }: { attacks: At
   );
 });
 
-              {/* Cantrips */}
-              {char.spells.cantrips.length > 0 && (
-                <PanelSection title={`Truques (${char.spells.cantrips.length})`}>
-                  <div className="flex flex-wrap gap-1">
-                    {visibleCantripsList.map((id) => {
-                      const sp = spellsById[id];
-                      return (
-                        <span key={id} className="rounded bg-secondary px-1.5 py-0.5 text-[11px]">
-                          {sp?.name ?? id}
-                        </span>
-                      );
-                    })}
-                  </div>
-                  {char.spells.cantrips.length > visibleCantrips && (
-                    <button
-                      type="button"
-                      onClick={() => setVisibleCantrips((v) => v + 12)}
-                      className="text-[11px] font-medium text-primary hover:underline"
-                    >
-                      Mostrar mais truques ({char.spells.cantrips.length - visibleCantrips} restantes)
-                    </button>
-                  )}
-                </PanelSection>
-              )}
+const spellsById = Object.fromEntries(spellsData.map((spell) => [spell.id, spell]));
 
-              {/* Prepared/Known */}
-              {char.spells.prepared.length > 0 && (
-                <PanelSection title={`${cls?.spellcasting?.type === "known" || cls?.spellcasting?.type === "pact" ? "Conhecidas" : "Preparadas"} (${char.spells.prepared.length})`}>
-                  <div className="flex flex-wrap gap-1">
-                    {visiblePreparedList.map((id) => {
-                      const sp = spellsById[id];
-                      return (
-                        <Tooltip key={id}>
-                          <TooltipTrigger asChild>
-                            <span className="rounded bg-secondary px-1.5 py-0.5 text-[11px] font-medium cursor-help">
-                              {sp?.name ?? id}
-                            </span>
-                          </TooltipTrigger>
-                          {sp && (
-                            <TooltipContent side="left" className="max-w-[250px]">
-                              <p className="font-medium text-xs">{sp.name}</p>
-                              <p className="text-[11px] text-muted-foreground">{sp.school} • {sp.level === 0 ? "Truque" : `${sp.level}º Círculo`}</p>
-                              <p className="text-[11px] mt-1 leading-relaxed">{sp.description.substring(0, 120)}...</p>
-                            </TooltipContent>
-                          )}
-                        </Tooltip>
-                      );
-                    })}
-                  </div>
-                  {char.spells.prepared.length > visiblePreparedSpells && (
-                    <button
-                      type="button"
-                      onClick={() => setVisiblePreparedSpells((v) => v + 12)}
-                      className="text-[11px] font-medium text-primary hover:underline"
-                    >
-                      Mostrar mais magias ({char.spells.prepared.length - visiblePreparedSpells} restantes)
-                    </button>
-                  )}
-                </PanelSection>
-              )}
-            </TabsContent>
-          )}
+const SpellsTab = memo(function SpellsTab({
+  spells,
+  spellcastingAbility,
+  spellcastingType,
+}: {
+  spells: { spellSaveDC: number; spellAttackBonus: number; spellcastingAbility: string | null; slots: number[]; cantrips: string[]; prepared: string[] };
+  spellcastingAbility?: string;
+  spellcastingType?: string;
+}) {
+  const cantripsDisplay = useMemo(
+    () => spells.cantrips.map((id) => spellsById[id] ?? { id, name: id }),
+    [spells.cantrips]
+  );
 
   return (
     <>
@@ -638,35 +448,34 @@ const ActionsTab = memo(function ActionsTab({ attacks, features }: { attacks: At
         </PanelSection>
       )}
 
-            {/* Inventory items */}
-            {char.inventory.length > 0 ? (
-              <PanelSection title={`Itens (${char.inventory.length})`}>
-                <div className="space-y-0.5">
-                  {visibleInventoryList.map((entry) => {
-                    const item = itemsById[entry.itemId];
-                    return (
-                      <div key={entry.itemId} className="flex items-center justify-between text-[11px] py-0.5">
-                        <span className="truncate">{item?.name ?? entry.notes ?? entry.itemId}</span>
-                        {entry.quantity > 1 && (
-                          <span className="text-muted-foreground shrink-0 ml-1">×{entry.quantity}</span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                {char.inventory.length > visibleInventoryItems && (
-                  <button
-                    type="button"
-                    onClick={() => setVisibleInventoryItems((v) => v + 12)}
-                    className="text-[11px] font-medium text-primary hover:underline"
-                  >
-                    Mostrar mais itens ({char.inventory.length - visibleInventoryItems} restantes)
-                  </button>
-                )}
-              </PanelSection>
-            ) : (
-              <EmptyState text="Inventário vazio" />
-            )}
+      {spells.prepared.length > 0 && (
+        <PanelSection title={`${spellcastingType === "known" || spellcastingType === "pact" ? "Conhecidas" : "Preparadas"} (${spells.prepared.length})`}>
+          <div className="flex flex-wrap gap-1">
+            {spells.prepared.map((id) => {
+              const sp = spellsById[id];
+              return (
+                <Tooltip key={id}>
+                  <TooltipTrigger asChild>
+                    <span className="rounded bg-secondary px-1.5 py-0.5 text-[11px] font-medium cursor-help">
+                      {sp?.name ?? id}
+                    </span>
+                  </TooltipTrigger>
+                  {sp && (
+                    <TooltipContent side="left" className="max-w-[250px]">
+                      <p className="font-medium text-xs">{sp.name}</p>
+                      <p className="text-[11px] text-muted-foreground">{sp.school} • {sp.level === 0 ? "Truque" : `${sp.level}º Círculo`}</p>
+                      <p className="text-[11px] mt-1 leading-relaxed">{sp.description.substring(0, 120)}...</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              );
+            })}
+          </div>
+        </PanelSection>
+      )}
+    </>
+  );
+});
 
 const InventoryTab = memo(function InventoryTab({
   goldGp,

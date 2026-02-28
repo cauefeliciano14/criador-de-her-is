@@ -10,6 +10,8 @@ const ZERO_MODS: Record<AbilityKey, number> = { str: -1, dex: -1, con: -1, int: 
 
 function makeCharacter(overrides: Partial<CharacterState> = {}): CharacterState {
   return {
+    lastSavedAt: null,
+    persistError: null,
     name: "", level: 1, race: null, subrace: null, class: null, subclass: null, background: null,
     abilityGeneration: {
       method: null, rolls: null, rollResults: null, pointBuyRemaining: 27,

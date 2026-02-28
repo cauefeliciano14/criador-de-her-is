@@ -340,7 +340,7 @@ export const useCharacterStore = create<CharacterState & CharacterActions>()(
             instruments: old?.instruments ?? [],
             cantrips: old?.cantrips ?? legacy.spells?.cantrips ?? [],
             spells: old?.spells ?? legacy.spells?.prepared ?? [],
-            raceChoice: old?.raceChoice ?? legacy.raceChoices?.raceChoice?.optionId ?? null,
+            raceChoice: old?.raceChoice ?? (legacy.raceChoices as any)?.raceChoice?.optionId ?? null,
             classFeats: old?.classFeats ?? [],
           };
           const legacyRaceState: any = legacy.raceChoices ?? {};
@@ -362,9 +362,7 @@ export const useCharacterStore = create<CharacterState & CharacterActions>()(
       storage: throttledStorage,
       onRehydrateStorage: () => (state, error) => {
         if (error) {
-          set({
-            persistError: "Falha ao restaurar dados salvos. Verifique o armazenamento do navegador.",
-          } as Partial<CharacterState & CharacterActions>);
+          console.error("Falha ao restaurar dados salvos. Verifique o armazenamento do navegador.");
           return;
         }
 
