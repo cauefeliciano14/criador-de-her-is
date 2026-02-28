@@ -169,8 +169,20 @@ function validateCrossRefs(classes: any[], races: any[], backgrounds: any[], spe
   }
 
   for (const bg of backgrounds) {
-    if (bg.originFeat && !featIds.has(bg.originFeat.id ?? bg.originFeat)) {
-      issues.push({ severity: "error", dataset: "backgrounds", id: bg.id, message: `originFeat inexistente: ${bg.originFeat.id ?? bg.originFeat}` });
+    if (!featIds.has(bg.originFeatId)) {
+      issues.push({ severity: "error", dataset: "backgrounds", id: bg.id, message: `originFeat inexistente: ${bg.originFeatId}` });
+    }
+    if (!Array.isArray(bg.skillsGranted) || bg.skillsGranted.length !== 2) {
+      issues.push({ severity: "error", dataset: "backgrounds", id: bg.id, message: "skillsGranted deve conter exatamente 2 perícias" });
+    }
+    if (!Array.isArray(bg.toolsGranted) || bg.toolsGranted.length < 1) {
+      issues.push({ severity: "error", dataset: "backgrounds", id: bg.id, message: "toolsGranted deve conter ao menos 1 ferramenta" });
+    }
+    if (!bg.equipmentOptionA || !Array.isArray(bg.equipmentOptionA.items)) {
+      issues.push({ severity: "error", dataset: "backgrounds", id: bg.id, message: "equipmentOptionA ausente" });
+    }
+    if (bg.equipmentOptionB?.gold !== 50) {
+      issues.push({ severity: "error", dataset: "backgrounds", id: bg.id, message: "equipmentOptionB deve ter 50 PO" });
     }
   }
 

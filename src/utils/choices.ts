@@ -189,7 +189,7 @@ function resolveExtraMagicSources(character: CharacterState) {
     }
   }
 
-  if (background?.originFeat?.id === "iniciado-em-magia") {
+  if (background?.originFeatId === "iniciado-em-magia") {
     const allowedClassIds = ["bardo", "clerigo", "druida", "feiticeiro", "bruxo", "mago"];
     const magicInitiateSpells = Object.entries(spellsByClassId)
       .filter(([classId]) => allowedClassIds.includes(classId))
@@ -234,10 +234,17 @@ export function getChoicesRequirements(character: CharacterState, datasets: Choi
       .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
   );
 
-  const instrumentRequiredCount = reqCount(currentBackground?.tools, (v) => INSTRUMENT_RX.test(v))
+  const bgToolsRaw = (currentBackground?.toolsGranted ?? []).map((tool) => {
+    if (tool === "choose_musical_instrument") return "Um instrumento à sua escolha";
+    if (tool === "choose_artisans_tools") return "Uma ferramenta de artesão à sua escolha";
+    if (tool === "choose_gaming_set") return "Um tipo de jogo à sua escolha";
+    return tool;
+  });
+
+  const instrumentRequiredCount = reqCount(bgToolsRaw, (v) => INSTRUMENT_RX.test(v))
     + reqCount(currentClass?.proficiencies.tools, (v) => INSTRUMENT_RX.test(v));
 
-  const backgroundToolRequirements = buildToolRequirements(currentBackground?.tools);
+  const backgroundToolRequirements = buildToolRequirements(bgToolsRaw);
   const classToolRequirements = buildToolRequirements(currentClass?.proficiencies.tools);
   const toolRequirements = [...backgroundToolRequirements, ...classToolRequirements];
   const toolRequiredCount = toolRequirements.reduce((sum, req) => sum + req.count, 0);
@@ -277,7 +284,7 @@ export function getChoicesRequirements(character: CharacterState, datasets: Choi
       uniq(instruments.map((i) => ({ id: i.id, name: i.name }))).sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
       [
       ...(character.class === "bardo" ? ["class:bardo:3"] : []),
-      ...(reqCount(currentBackground?.tools, (v) => INSTRUMENT_RX.test(v)) > 0 && currentBackground ? [`background:${currentBackground.id}:${reqCount(currentBackground?.tools, (v) => INSTRUMENT_RX.test(v))}`] : []),
+      ...(reqCount(bgToolsRaw, (v) => INSTRUMENT_RX.test(v)) > 0 && currentBackground ? [`background:${currentBackground.id}:${reqCount(bgToolsRaw, (v) => INSTRUMENT_RX.test(v))}`] : []),
     ]),
     cantrips: makeBucket(
       spellData.cantrips + extraMagic.cantrips,

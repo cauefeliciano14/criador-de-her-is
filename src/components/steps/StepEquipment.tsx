@@ -81,15 +81,13 @@ export function StepEquipment() {
 
     if (bgChoice) {
       addItemsToInventory(newInventory, bgChoice.items);
-    } else if (selectedBg?.equipment?.items) {
-      addItemsToInventory(newInventory, selectedBg.equipment.items);
     }
 
     patchCharacter({
       classEquipmentChoice: choiceId,
       inventory: newInventory,
       equipped: { armor: null, shield: null, weapons: [] },
-      gold: { gp: choice.gold + (bgChoice?.gold ?? selectedBg?.equipment?.gold ?? 0) },
+      gold: { gp: choice.gold + (bgChoice?.gold ?? 0) },
     });
   }
 
@@ -107,6 +105,8 @@ export function StepEquipment() {
 
     patchCharacter({
       backgroundEquipmentChoice: choiceId,
+      backgroundEquipmentItems: bgChoice.items,
+      backgroundGold: bgChoice.gold,
       inventory: newInventory,
       equipped: { armor: null, shield: null, weapons: [] },
       gold: { gp: (classChoice?.gold ?? 0) + bgChoice.gold },

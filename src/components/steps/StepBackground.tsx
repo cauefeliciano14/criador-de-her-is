@@ -1,20 +1,29 @@
 import { useCharacterStore, mergeUnique, replaceFeatures } from "@/state/characterStore";
 import { useBuilderStore } from "@/state/builderStore";
 import { backgrounds, type Background } from "@/data/backgrounds";
-import { toolsByName } from "@/data/tools";
+import { feats } from "@/data/feats";
+import { toolsById, toolChoiceOptions, type ToolData } from "@/data/tools";
 import { ABILITY_LABELS, ABILITY_SHORT } from "@/utils/calculations";
-import { CheckCircle2, Search, Info, Star, Package, Wrench, ScrollText, ShieldCheck } from "lucide-react";
-import { useState, useEffect, useCallback, type ReactNode } from "react";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { skillsByName } from "@/data/skills";
+import { CheckCircle2, Search, Info, Star, Package, Wrench, Pencil } from "lucide-react";
+import { getChoicesRequirements } from "@/utils/choices";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import type React from "react";
+import { commonLanguages } from "@/data/languagesCommon";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+
+const TOOL_INFO_TEXT = "Proficiência com esta ferramenta permite adicionar o Bônus de Proficiência em testes relacionados.";
 
 export function StepBackground() {
   const [search, setSearch] = useState("");
 
   const bgId = useCharacterStore((s) => s.background);
-  const backgroundToolChoice = useCharacterStore((s) => s.backgroundToolChoice);
-  const backgroundEquipmentChoice = useCharacterStore((s) => s.backgroundEquipmentChoice);
+  const char = useCharacterStore();
   const patchCharacter = useCharacterStore((s) => s.patchCharacter);
   const completeStep = useBuilderStore((s) => s.completeStep);
   const uncompleteStep = useBuilderStore((s) => s.uncompleteStep);
@@ -25,33 +34,37 @@ export function StepBackground() {
     .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
   const selectedBg = backgrounds.find((b) => b.id === bgId);
+  const requirements = useMemo(() => getChoicesRequirements(char), [char]);
+  const bgLanguageSource = requirements.buckets.languages.sources.find((s) => s.startsWith("background:"));
+  const bgLanguageRequired = bgLanguageSource ? Number(bgLanguageSource.split(":").pop()) || 0 : 0;
 
   const computeMissing = useCallback(() => {
     const missing: string[] = [];
-    if (!selectedBg) {
-      missing.push("Escolher antecedente");
-      return missing;
+    if (!bgId) return ["Escolher antecedente"];
+    const state = useCharacterStore.getState();
+    const hasFeat = state.features.some((f) => f.sourceType === "background" && f.tags?.includes("originFeat"));
+    if (!hasFeat) missing.push("Talento de Origem não aplicado");
+    if ((selectedBg?.toolsGranted.some((id) => id.startsWith("choose_")) ?? false) && requirements.buckets.tools.pendingCount > 0) {
+      missing.push("Escolher ferramenta de origem");
     }
-    if (selectedBg.grantedTool.mode === "choice" && !backgroundToolChoice) {
-      missing.push("Escolher a ferramenta concedida");
-    }
-    if (!backgroundEquipmentChoice) {
-      missing.push("Escolher equipamento inicial (Opção A ou B)");
+    if (!state.backgroundEquipmentChoice) missing.push("Escolher pacote de equipamento (A/B)");
+    if (requirements.buckets.languages.pendingCount > 0) {
+      missing.push(`Escolher idiomas (${requirements.buckets.languages.selectedIds.length}/${requirements.buckets.languages.requiredCount})`);
     }
     return missing;
-  }, [backgroundEquipmentChoice, backgroundToolChoice, selectedBg]);
+  }, [bgId, requirements.buckets.languages.pendingCount, requirements.buckets.languages.requiredCount, requirements.buckets.languages.selectedIds.length, requirements.buckets.tools.pendingCount, selectedBg?.toolsGranted]);
 
   useEffect(() => {
     const missing = computeMissing();
     setMissing("origin", missing);
-    if (missing.length === 0 && selectedBg) completeStep("origin");
+    if (missing.length === 0 && bgId) completeStep("origin");
     else uncompleteStep("origin");
-  }, [computeMissing, completeStep, selectedBg, setMissing, uncompleteStep]);
+  }, [bgId, computeMissing, completeStep, setMissing, uncompleteStep]);
 
   const handleSelect = (id: string) => {
     if (id === bgId) return;
-    const bg = backgrounds.find((b) => b.id === id);
-    if (!bg) return;
+    const bg = backgrounds.find((b) => b.id === id)!;
+    const feat = feats.find((item) => item.id === bg.originFeatId);
     const state = useCharacterStore.getState();
 
     const toolValue = bg.grantedTool.mode === "fixed" ? bg.grantedTool.name ?? null : null;
@@ -60,8 +73,8 @@ export function StepBackground() {
       {
         sourceType: "background",
         sourceId: bg.id,
-        name: bg.originFeat.name,
-        description: bg.originFeat.description,
+        name: feat?.name ?? bg.originFeatId,
+        description: feat?.description ?? "",
         level: 1,
         tags: ["originFeat"],
       },
@@ -70,42 +83,25 @@ export function StepBackground() {
     patchCharacter({
       background: id,
       backgroundEquipmentChoice: "A",
-      backgroundToolChoice: toolValue,
+      backgroundEquipmentItems: bg.equipmentChoices[0]?.items ?? [],
+      backgroundGold: bg.equipmentChoices[0]?.gold ?? 0,
       backgroundAbilityChoices: {},
       backgroundBonuses: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 },
       features,
+      choiceSelections: { ...state.choiceSelections, tools: [] },
       proficiencies: {
         ...state.proficiencies,
-        tools: toolValue ? mergeUnique(state.proficiencies.tools, [toolValue]) : state.proficiencies.tools,
+        languages: mergeUnique(state.proficiencies.languages, bg.languages),
       },
-      skills: mergeUnique(state.skills, bg.grantedSkills),
-      origin: {
-        background: bg.id,
-        skillsGranted: bg.grantedSkills,
-        toolGranted: toolValue,
-        originFeat: bg.originFeat.name,
-        startingEquipment: "A",
-      },
+      skills: mergeUnique(state.skills, bg.skillsGranted),
     });
   };
 
-  const onToolChoice = (toolName: string) => {
-    if (!selectedBg) return;
-    patchCharacter({
-      backgroundToolChoice: toolName,
-      proficiencies: {
-        ...useCharacterStore.getState().proficiencies,
-        tools: mergeUnique(useCharacterStore.getState().proficiencies.tools, [toolName]),
-      },
-      origin: { ...useCharacterStore.getState().origin, toolGranted: toolName },
-    });
-  };
-
-  const onEquipmentChoice = (choice: "A" | "B") => {
-    patchCharacter({
-      backgroundEquipmentChoice: choice,
-      origin: { ...useCharacterStore.getState().origin, startingEquipment: choice },
-    });
+  const toggleLanguage = (languageId: string) => {
+    const current = new Set(char.choiceSelections.languages ?? []);
+    if (current.has(languageId)) current.delete(languageId);
+    else if (current.size < requirements.buckets.languages.requiredCount) current.add(languageId);
+    patchCharacter({ choiceSelections: { ...char.choiceSelections, languages: [...current] } });
   };
 
   return (
@@ -114,27 +110,18 @@ export function StepBackground() {
         <h2 className="mb-3 text-lg font-bold">2. Origem</h2>
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Buscar antecedente..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-md border bg-secondary py-2 pl-9 pr-3 text-sm"
-          />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar antecedente..." className="w-full rounded-md border bg-secondary py-2 pl-9 pr-3 text-sm" />
         </div>
         <div className="space-y-2">
           {sorted.map((bg) => {
             const isSelected = bgId === bg.id;
             return (
-              <button
-                key={bg.id}
-                onClick={() => handleSelect(bg.id)}
-                className={`w-full rounded-lg border p-3 text-left ${isSelected ? "border-primary bg-primary/10" : "hover:bg-secondary"}`}
-              >
+              <button key={bg.id} onClick={() => handleSelect(bg.id)} className={`w-full rounded-lg border p-3 text-left transition-colors ${isSelected ? "border-primary bg-primary/10" : "hover:border-muted-foreground/40 hover:bg-secondary"}`}>
                 <div className="flex items-center justify-between">
                   <span className="font-medium">{bg.name}</span>
                   {isSelected && <CheckCircle2 className="h-4 w-4 text-primary" />}
                 </div>
+                <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{bg.description}</p>
               </button>
             );
           })}
@@ -143,127 +130,182 @@ export function StepBackground() {
 
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
         {selectedBg ? (
-          <BackgroundDetails
-            bg={selectedBg}
-            selectedTool={backgroundToolChoice}
-            equipmentChoice={(backgroundEquipmentChoice as "A" | "B" | null) ?? null}
-            onToolChoice={onToolChoice}
-            onEquipmentChoice={onEquipmentChoice}
-          />
+          <BackgroundDetails bg={selectedBg} bgLanguageRequired={bgLanguageRequired} requirements={requirements} selectedLanguages={char.choiceSelections.languages ?? []} onToggleLanguage={toggleLanguage} />
         ) : (
-          <div className="flex min-h-[200px] items-center justify-center text-muted-foreground">Selecione um antecedente.</div>
+          <div className="flex min-h-[200px] items-center justify-center text-muted-foreground"><p>Selecione um antecedente na lista ao lado.</p></div>
         )}
       </div>
     </div>
   );
 }
 
-function BackgroundDetails({
-  bg,
-  selectedTool,
-  equipmentChoice,
-  onToolChoice,
-  onEquipmentChoice,
-}: {
-  bg: Background;
-  selectedTool: string | null;
-  equipmentChoice: "A" | "B" | null;
-  onToolChoice: (name: string) => void;
-  onEquipmentChoice: (choice: "A" | "B") => void;
-}) {
-  const toolName = bg.grantedTool.mode === "fixed" ? bg.grantedTool.name : selectedTool;
-  const tool = toolName ? toolsByName[toolName] ?? toolsByName[bg.grantedTool.options?.[0] ?? ""] : null;
+function BackgroundDetails({ bg, bgLanguageRequired, requirements, selectedLanguages, onToggleLanguage }: { bg: Background; bgLanguageRequired: number; requirements: ReturnType<typeof getChoicesRequirements>; selectedLanguages: string[]; onToggleLanguage: (id: string) => void; }) {
+  const patchCharacter = useCharacterStore((s) => s.patchCharacter);
+  const char = useCharacterStore();
+  const feat = feats.find((item) => item.id === bg.originFeatId);
+  const selectedToolId = char.choiceSelections.tools?.[0] ?? null;
+  const equipmentSelected = char.backgroundEquipmentChoice ?? "A";
+  const conflictSkills = useMemo(() => {
+    const selectedClassSkills = requirements.buckets.classSkills.selectedIds
+      .map((id) => requirements.buckets.classSkills.options.find((option) => option.id === id)?.name)
+      .filter(Boolean) as string[];
+    return bg.skillsGranted.filter((skill) => selectedClassSkills.includes(skill));
+  }, [bg.skillsGranted, requirements.buckets.classSkills.options, requirements.buckets.classSkills.selectedIds]);
+
+  const featBullets = (feat?.description ?? "")
+    .split(".")
+    .map((chunk) => chunk.trim())
+    .filter(Boolean)
+    .slice(0, 4);
+
+  const equipmentOptionAList = bg.equipmentOptionA.items.map((item) => `${item.qty}× ${item.itemId}`);
+
+  const setEquipmentChoice = (choice: "A" | "B") => {
+    const resolvedItems = choice === "A" ? bg.equipmentChoices[0].items : [];
+    const resolvedGold = choice === "A" ? bg.equipmentOptionA.gold : bg.equipmentOptionB.gold;
+    patchCharacter({ backgroundEquipmentChoice: choice, backgroundEquipmentItems: resolvedItems, backgroundGold: resolvedGold });
+  };
 
   return (
     <div>
       <h2 className="text-2xl font-bold">{bg.name}</h2>
-      <div className="mt-4 flex gap-2">
-        {bg.abilityScores.map((a) => (
-          <span key={a} className="rounded bg-primary/10 border border-primary/30 px-3 py-1.5 text-sm font-medium">
-            {ABILITY_SHORT[a]} — {ABILITY_LABELS[a]}
-          </span>
-        ))}
-      </div>
+      <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{bg.description}</p>
 
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <HighlightCard title="Perícias Concedidas" icon={<ShieldCheck className="h-4 w-4" />}>
-          <ul className="list-disc pl-5 space-y-1">{bg.grantedSkills.map((s) => <li key={s}>{s}</li>)}</ul>
-        </HighlightCard>
+      <div className="mt-6 space-y-4">
+        <Section title="Perícias Concedidas" icon={<CheckCircle2 className="h-4 w-4 text-primary" />} highlighted>
+          <div className="flex flex-wrap gap-2">
+            {bg.skillsGranted.map((skill) => {
+              const ability = skillsByName[skill]?.ability;
+              return <Badge key={skill} variant="secondary">{skill}{ability ? ` (${ABILITY_LABELS[ability]})` : ""}</Badge>;
+            })}
+          </div>
+          {conflictSkills.length > 0 && <p className="mt-2 text-xs text-warning">Conflito com perícia já escolhida: {conflictSkills.join(", ")}. Ajuste na etapa de Perícias.</p>}
+        </Section>
 
-        <HighlightCard title="Ferramentas Concedidas" icon={<Wrench className="h-4 w-4" />}>
-          {bg.grantedTool.mode === "choice" && (
-            <div className="mb-2">
-              <p className="text-sm mb-2">{bg.grantedTool.choiceLabel}</p>
-              <div className="flex gap-2 flex-wrap">
-                {(bg.grantedTool.options ?? []).map((option) => (
-                  <Button key={option} variant={selectedTool === option ? "default" : "outline"} size="sm" onClick={() => onToolChoice(option)}>{option}</Button>
-                ))}
-              </div>
-            </div>
-          )}
-          {tool ? (
-            <div className="space-y-1 text-sm">
-              <p className="font-semibold">{tool.name}</p>
-              <p>Atributo: {tool.attribute} | Peso: {tool.weight}</p>
-              <p>Usar Objeto: {tool.useObject}</p>
-              {tool.variants && (
-                <Accordion type="single" collapsible>
-                  <AccordionItem value="variants">
-                    <AccordionTrigger>Variantes</AccordionTrigger>
-                    <AccordionContent>
-                      <ul className="list-disc pl-5">{tool.variants.map((v) => <li key={v.id}>{v.name}</li>)}</ul>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              )}
-            </div>
-          ) : <p className="text-sm text-muted-foreground">Selecione uma ferramenta para ver os detalhes.</p>}
-        </HighlightCard>
-
-        <HighlightCard title="Talento de Origem" icon={<Star className="h-4 w-4" />}>
-          <p className="font-semibold mb-1">{bg.originFeat.name}</p>
-          <ul className="list-disc pl-5 text-sm space-y-1 mb-3">{bg.originFeat.summary.map((item) => <li key={item}>{item}</li>)}</ul>
-          <Dialog>
-            <DialogTrigger asChild><Button size="sm" variant="outline">Detalhes</Button></DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{bg.originFeat.name}</DialogTitle>
-              </DialogHeader>
-              <p className="text-sm text-muted-foreground">{bg.originFeat.details}</p>
-            </DialogContent>
-          </Dialog>
-        </HighlightCard>
-
-        <HighlightCard title="Equipamento" icon={<Package className="h-4 w-4" />}>
+        <Section title="Ferramentas Concedidas" icon={<Wrench className="h-4 w-4 text-primary" />} badge={<Badge>Concedido</Badge>} highlighted>
           <div className="space-y-3">
-            {bg.equipmentChoices.map((choice) => (
-              <button key={choice.id} onClick={() => onEquipmentChoice(choice.id)} className={`w-full rounded border p-3 text-left ${equipmentChoice === choice.id ? "border-primary bg-primary/10" : ""}`}>
-                <p className="font-semibold">{choice.label}</p>
-                {choice.items.length > 0 && <ul className="list-disc pl-5 text-sm">{choice.items.map((item) => <li key={item}>{item}</li>)}</ul>}
-                <p className="text-sm mt-1">{choice.gold} PO</p>
-              </button>
-            ))}
+            {bg.toolsGranted.map((toolId) => {
+              const tool = toolsById[toolId];
+              const needsChoice = toolId.startsWith("choose_");
+              const options = toolChoiceOptions[toolId] ?? [];
+              return (
+                <div key={toolId} className="rounded-md border bg-background p-3">
+                  <p className="font-semibold">{tool?.name ?? toolId}</p>
+                  <p className="text-xs text-muted-foreground">{TOOL_INFO_TEXT}</p>
+                  {needsChoice && (
+                    <div className="mt-3 rounded border">
+                      <Command>
+                        <CommandInput placeholder="Buscar ferramenta..." />
+                        <CommandList>
+                          <CommandEmpty>Nenhuma ferramenta encontrada.</CommandEmpty>
+                          <CommandGroup>
+                            {options.map((option) => (
+                              <CommandItem
+                                key={option.id}
+                                value={option.name}
+                                onSelect={() => patchCharacter({ choiceSelections: { ...char.choiceSelections, tools: [option.id] }, proficiencies: { ...char.proficiencies, tools: mergeUnique(char.proficiencies.tools, [option.name]) } })}
+                              >
+                                {option.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                      {selectedToolId && <p className="px-3 py-2 text-xs text-primary">Completo: {options.find((item) => item.id === selectedToolId)?.name}</p>}
+                    </div>
+                  )}
+                  {!needsChoice && (
+                    <ToolDetails tool={tool} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+
+        <Section title="Talento de Origem" icon={<Star className="h-4 w-4 text-primary" />} badge={<Badge>Concedido</Badge>} highlighted>
+          <div className="rounded-md border bg-background p-4">
+            <p className="text-lg font-bold">{feat?.name ?? "Talento não encontrado"}</p>
+            <Badge variant="secondary" className="mt-1">Talento de Origem</Badge>
+            <ul className="mt-3 list-disc pl-5 text-sm text-muted-foreground space-y-1">
+              {featBullets.map((bullet) => <li key={bullet}>{bullet}.</li>)}
+            </ul>
+            {feat && (
+              <Dialog>
+                <DialogTrigger asChild><Button variant="outline" size="sm" className="mt-3">Detalhes</Button></DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>{feat.name}</DialogTitle></DialogHeader>
+                  <p className="text-sm leading-relaxed text-muted-foreground">{feat.description}</p>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
           <p className="mt-2 text-xs text-muted-foreground"><Info className="inline h-3 w-3 mr-1" />As escolhas ficam salvas na ficha automaticamente.</p>
         </HighlightCard>
       </div>
 
-      <div className="mt-5 rounded border p-3 text-sm text-muted-foreground flex items-center gap-2">
-        <ScrollText className="h-4 w-4" />
-        Estes blocos são sempre exibidos e atualizados com a origem selecionada.
+        <Section title="Equipamento" icon={<Package className="h-4 w-4 text-primary" />} badge={<Badge>{equipmentSelected === "A" ? "Pacote A" : "50 PO"}</Badge>} highlighted>
+          <RadioGroup value={equipmentSelected} onValueChange={(value) => setEquipmentChoice(value as "A" | "B")}>
+            <div className="rounded-md border p-3">
+              <div className="flex items-center gap-2"><RadioGroupItem value="A" id="equipA" /><Label htmlFor="equipA">Opção A — Pacote do antecedente</Label></div>
+              <ul className="mt-2 list-disc pl-5 text-sm text-muted-foreground">{equipmentOptionAList.map((item) => <li key={item}>{item}</li>)}</ul>
+              {bg.equipmentOptionA.gold > 0 && <p className="mt-1 text-sm text-muted-foreground">+ {bg.equipmentOptionA.gold} PO</p>}
+            </div>
+            <div className="rounded-md border p-3">
+              <div className="flex items-center gap-2"><RadioGroupItem value="B" id="equipB" /><Label htmlFor="equipB">Opção B — 50 PO</Label></div>
+            </div>
+          </RadioGroup>
+          <p className="text-xs text-muted-foreground">Escolha persistida. Você pode editar a qualquer momento.</p>
+        </Section>
+
+        <Section title="Bônus de Atributos" icon={<Pencil className="h-4 w-4 text-primary" />}>
+          <div className="flex gap-2 flex-wrap">{bg.abilityOptions.map((a) => <span key={a} className="rounded bg-primary/10 border border-primary/30 px-3 py-1.5 text-sm font-medium">{ABILITY_SHORT[a]} — {ABILITY_LABELS[a]}</span>)}</div>
+          <p className="mt-2 text-xs text-info"><Info className="inline h-3 w-3 mr-1" />A distribuição (+2/+1 ou +1/+1/+1) é feita na etapa "Distribuir Atributos".</p>
+        </Section>
+
+        <Section title="Idiomas">
+          <p className="text-xs text-muted-foreground mb-3">Escolha idiomas: {requirements.buckets.languages.selectedIds.length}/{requirements.buckets.languages.requiredCount} (inclui +{bgLanguageRequired} do antecedente).</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {requirements.buckets.languages.options.slice().sort((a, b) => a.name.localeCompare(b.name, "pt-BR")).map((language) => {
+              const selected = selectedLanguages.includes(language.id);
+              const languageInfo = commonLanguages.find((lang) => lang.id === language.id);
+              const disabled = !selected && selectedLanguages.length >= requirements.buckets.languages.requiredCount;
+              return (
+                <button key={language.id} onClick={() => onToggleLanguage(language.id)} disabled={disabled} className={`rounded border px-2 py-1 text-sm text-left ${selected ? "border-primary bg-primary/10" : disabled ? "opacity-40 cursor-not-allowed" : "hover:bg-secondary"}`}>
+                  <span className="font-medium">{language.name}</span>{languageInfo?.origin && <span className="ml-1 text-xs text-muted-foreground">• {languageInfo.origin}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </Section>
       </div>
     </div>
   );
 }
 
-function HighlightCard({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
+function Section({ title, icon, badge, children, highlighted = false }: { title: string; icon?: React.ReactNode; badge?: React.ReactNode; children: React.ReactNode; highlighted?: boolean; }) {
   return (
-    <div className="rounded-lg border bg-card p-4">
-      <div className="mb-3 flex items-center gap-2">
+    <div className={`rounded-lg border p-4 ${highlighted ? "bg-primary/5 border-primary/40" : "bg-card"}`}>
+      <div className="mb-2 flex items-center gap-2">
         {icon}
-        <h3 className="text-base font-bold">{title}</h3>
+        <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">{title}</h3>
+        {badge}
       </div>
       {children}
     </div>
+  );
+}
+
+function ToolDetails({ tool }: { tool?: ToolData }) {
+  if (!tool) return null;
+  return (
+    <Dialog>
+      <DialogTrigger asChild><Button variant="ghost" size="sm" className="mt-2">Detalhes</Button></DialogTrigger>
+      <DialogContent>
+        <DialogHeader><DialogTitle>{tool.name}</DialogTitle></DialogHeader>
+        <p className="text-sm text-muted-foreground">{tool.description}</p>
+        <p className="text-xs text-muted-foreground">Custo: {tool.costGp} PO • Peso: {tool.weight} lb</p>
+      </DialogContent>
+    </Dialog>
   );
 }
