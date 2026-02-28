@@ -226,7 +226,8 @@ export function getChoicesRequirements(character: CharacterState, datasets: Choi
 
   const raceLangReq = reqCount(currentRace?.languages, (v) => LANGUAGE_RX.test(v));
   const bgLangReq = reqCount(currentBackground?.languages, (v) => LANGUAGE_RX.test(v));
-  const languageRequiredCount = 2 + raceLangReq + bgLangReq;
+  const classLangReq = reqCount(currentClass?.proficiencies.languages, (v) => LANGUAGE_RX.test(v));
+  const languageRequiredCount = raceLangReq + bgLangReq + classLangReq;
   const languageOptions = uniq(
     commonLanguages
       .filter((l) => l.id !== "comum")
@@ -270,9 +271,9 @@ export function getChoicesRequirements(character: CharacterState, datasets: Choi
   const buckets = {
     classSkills: makeBucket(classSkillRequired, selections.classSkills ?? selections.skills ?? character.classSkillChoices ?? [], classSkillOptions, currentClass ? [`class:${currentClass.id}`] : []),
     languages: makeBucket(languageRequiredCount, selections.languages ?? [], languageOptions, [
-      "base:common:2",
       ...(raceLangReq > 0 && currentRace ? [`race:${currentRace.id}:${raceLangReq}`] : []),
       ...(bgLangReq > 0 && currentBackground ? [`background:${currentBackground.id}:${bgLangReq}`] : []),
+      ...(classLangReq > 0 && currentClass ? [`class:${currentClass.id}:${classLangReq}`] : []),
     ]),
     tools: makeBucket(toolRequiredCount, selections.tools ?? [], toolOptions, [
       ...backgroundToolRequirements.map((req) => `background:${currentBackground?.id}:${req.subtype}:${req.count}`),
