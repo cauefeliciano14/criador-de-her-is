@@ -1,17 +1,20 @@
-import { useCharacterStore, mergeUnique, replaceFeatures, type NormalizedFeature } from "@/state/characterStore";
+import { useCharacterStore, mergeUnique, replaceFeatures } from "@/state/characterStore";
 import { useBuilderStore } from "@/state/builderStore";
 import { backgrounds, type Background } from "@/data/backgrounds";
-import { ABILITY_LABELS, ABILITY_SHORT, type AbilityKey } from "@/utils/calculations";
-import { CheckCircle2, Search, Info, Star, Package, ChevronDown, ChevronUp } from "lucide-react";
-import { getChoicesRequirements } from "@/utils/choices";
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { commonLanguages } from "@/data/languagesCommon";
+import { toolsByName } from "@/data/tools";
+import { ABILITY_LABELS, ABILITY_SHORT } from "@/utils/calculations";
+import { CheckCircle2, Search, Info, Star, Package, Wrench, ScrollText, ShieldCheck } from "lucide-react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 export function StepBackground() {
   const [search, setSearch] = useState("");
-  const [featExpanded, setFeatExpanded] = useState(true);
 
   const bgId = useCharacterStore((s) => s.background);
+  const backgroundToolChoice = useCharacterStore((s) => s.backgroundToolChoice);
+  const backgroundEquipmentChoice = useCharacterStore((s) => s.backgroundEquipmentChoice);
   const patchCharacter = useCharacterStore((s) => s.patchCharacter);
   const completeStep = useBuilderStore((s) => s.completeStep);
   const uncompleteStep = useBuilderStore((s) => s.uncompleteStep);
@@ -22,48 +25,36 @@ export function StepBackground() {
     .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
   const selectedBg = backgrounds.find((b) => b.id === bgId);
-  const char = useCharacterStore();
-  const datasetsVersion = `${backgrounds.length}`;
-  const requirements = useMemo(() => getChoicesRequirements(char), [char.class, char.race, char.background, char.level, char.choiceSelections, datasetsVersion]);
-  const bgLanguageSource = requirements.buckets.languages.sources.find((s) => s.startsWith("background:"));
-  const bgLanguageRequired = bgLanguageSource ? Number(bgLanguageSource.split(":").pop()) || 0 : 0;
-  const baseLanguageChoices = 2;
 
-  // --- Validation (simplified — bonus moved to ability step) ---
   const computeMissing = useCallback(() => {
     const missing: string[] = [];
-    if (!bgId) {
+    if (!selectedBg) {
       missing.push("Escolher antecedente");
       return missing;
     }
-    const state = useCharacterStore.getState();
-    const hasFeat = state.features.some(
-      (f) => f.sourceType === "background" && f.tags?.includes("originFeat")
-    );
-    if (!hasFeat) {
-      missing.push("Talento de Origem não aplicado");
+    if (selectedBg.grantedTool.mode === "choice" && !backgroundToolChoice) {
+      missing.push("Escolher a ferramenta concedida");
     }
-    if (requirements.buckets.languages.pendingCount > 0) {
-      missing.push(`Escolher idiomas (${requirements.buckets.languages.selectedIds.length}/${requirements.buckets.languages.requiredCount})`);
+    if (!backgroundEquipmentChoice) {
+      missing.push("Escolher equipamento inicial (Opção A ou B)");
     }
     return missing;
-  }, [bgId, requirements.buckets.languages.pendingCount, requirements.buckets.languages.requiredCount, requirements.buckets.languages.selectedIds.length]);
+  }, [backgroundEquipmentChoice, backgroundToolChoice, selectedBg]);
 
   useEffect(() => {
     const missing = computeMissing();
     setMissing("origin", missing);
-    if (missing.length === 0 && bgId) {
-      completeStep("origin");
-    } else {
-      uncompleteStep("origin");
-    }
-  }, [bgId, computeMissing, completeStep, setMissing, uncompleteStep]);
+    if (missing.length === 0 && selectedBg) completeStep("origin");
+    else uncompleteStep("origin");
+  }, [computeMissing, completeStep, selectedBg, setMissing, uncompleteStep]);
 
-  // --- Select background ---
   const handleSelect = (id: string) => {
     if (id === bgId) return;
-    const bg = backgrounds.find((b) => b.id === id)!;
+    const bg = backgrounds.find((b) => b.id === id);
+    if (!bg) return;
     const state = useCharacterStore.getState();
+
+    const toolValue = bg.grantedTool.mode === "fixed" ? bg.grantedTool.name ?? null : null;
 
     const features = replaceFeatures(state.features, ["background"], [
       {
@@ -78,30 +69,47 @@ export function StepBackground() {
 
     patchCharacter({
       background: id,
-      backgroundEquipmentChoice: null,
+      backgroundEquipmentChoice: "A",
+      backgroundToolChoice: toolValue,
       backgroundAbilityChoices: {},
       backgroundBonuses: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 },
       features,
       proficiencies: {
         ...state.proficiencies,
-        tools: mergeUnique(state.proficiencies.tools, bg.tools),
-        languages: mergeUnique(state.proficiencies.languages, bg.languages),
+        tools: toolValue ? mergeUnique(state.proficiencies.tools, [toolValue]) : state.proficiencies.tools,
       },
-      skills: mergeUnique(state.skills, bg.skills),
+      skills: mergeUnique(state.skills, bg.grantedSkills),
+      origin: {
+        background: bg.id,
+        skillsGranted: bg.grantedSkills,
+        toolGranted: toolValue,
+        originFeat: bg.originFeat.name,
+        startingEquipment: "A",
+      },
     });
   };
 
+  const onToolChoice = (toolName: string) => {
+    if (!selectedBg) return;
+    patchCharacter({
+      backgroundToolChoice: toolName,
+      proficiencies: {
+        ...useCharacterStore.getState().proficiencies,
+        tools: mergeUnique(useCharacterStore.getState().proficiencies.tools, [toolName]),
+      },
+      origin: { ...useCharacterStore.getState().origin, toolGranted: toolName },
+    });
+  };
 
-  const toggleLanguage = (languageId: string) => {
-    const current = new Set(char.choiceSelections.languages ?? []);
-    if (current.has(languageId)) current.delete(languageId);
-    else if (current.size < requirements.buckets.languages.requiredCount) current.add(languageId);
-    patchCharacter({ choiceSelections: { ...char.choiceSelections, languages: [...current] } });
+  const onEquipmentChoice = (choice: "A" | "B") => {
+    patchCharacter({
+      backgroundEquipmentChoice: choice,
+      origin: { ...useCharacterStore.getState().origin, startingEquipment: choice },
+    });
   };
 
   return (
     <div className="flex flex-col md:flex-row gap-0">
-      {/* Left - list */}
       <div className="w-full md:w-72 md:shrink-0 border-b md:border-b-0 md:border-r p-4 overflow-y-auto">
         <h2 className="mb-3 text-lg font-bold">2. Origem</h2>
         <div className="relative mb-4">
@@ -111,7 +119,7 @@ export function StepBackground() {
             placeholder="Buscar antecedente..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-md border bg-secondary py-2 pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-full rounded-md border bg-secondary py-2 pl-9 pr-3 text-sm"
           />
         </div>
         <div className="space-y-2">
@@ -121,236 +129,141 @@ export function StepBackground() {
               <button
                 key={bg.id}
                 onClick={() => handleSelect(bg.id)}
-                className={`w-full rounded-lg border p-3 text-left transition-colors ${
-                  isSelected
-                    ? "border-primary bg-primary/10"
-                    : "hover:border-muted-foreground/40 hover:bg-secondary"
-                }`}
+                className={`w-full rounded-lg border p-3 text-left ${isSelected ? "border-primary bg-primary/10" : "hover:bg-secondary"}`}
               >
                 <div className="flex items-center justify-between">
                   <span className="font-medium">{bg.name}</span>
                   {isSelected && <CheckCircle2 className="h-4 w-4 text-primary" />}
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
-                  {bg.description}
-                </p>
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Right - details */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
         {selectedBg ? (
           <BackgroundDetails
             bg={selectedBg}
-            featExpanded={featExpanded}
-            onToggleFeat={() => setFeatExpanded(!featExpanded)}
-            bgLanguageRequired={bgLanguageRequired}
-            baseLanguageChoices={baseLanguageChoices}
-            languageOptions={requirements.buckets.languages.options}
-            selectedLanguages={char.choiceSelections.languages ?? []}
-            selectedCount={requirements.buckets.languages.selectedIds.length}
-            totalRequiredLanguages={requirements.buckets.languages.requiredCount}
-            onToggleLanguage={toggleLanguage}
+            selectedTool={backgroundToolChoice}
+            equipmentChoice={(backgroundEquipmentChoice as "A" | "B" | null) ?? null}
+            onToolChoice={onToolChoice}
+            onEquipmentChoice={onEquipmentChoice}
           />
         ) : (
-          <div className="flex min-h-[200px] items-center justify-center text-muted-foreground">
-            <p>Selecione um antecedente na lista ao lado.</p>
-          </div>
+          <div className="flex min-h-[200px] items-center justify-center text-muted-foreground">Selecione um antecedente.</div>
         )}
       </div>
     </div>
   );
 }
 
-// ─── Details ───
-
-interface BackgroundDetailsProps {
+function BackgroundDetails({
+  bg,
+  selectedTool,
+  equipmentChoice,
+  onToolChoice,
+  onEquipmentChoice,
+}: {
   bg: Background;
-  featExpanded: boolean;
-  onToggleFeat: () => void;
-  bgLanguageRequired: number;
-  baseLanguageChoices: number;
-  languageOptions: { id: string; name: string }[];
-  selectedLanguages: string[];
-  selectedCount: number;
-  totalRequiredLanguages: number;
-  onToggleLanguage: (id: string) => void;
-}
+  selectedTool: string | null;
+  equipmentChoice: "A" | "B" | null;
+  onToolChoice: (name: string) => void;
+  onEquipmentChoice: (choice: "A" | "B") => void;
+}) {
+  const toolName = bg.grantedTool.mode === "fixed" ? bg.grantedTool.name : selectedTool;
+  const tool = toolName ? toolsByName[toolName] ?? toolsByName[bg.grantedTool.options?.[0] ?? ""] : null;
 
-function BackgroundDetails({ bg, featExpanded, onToggleFeat, bgLanguageRequired, baseLanguageChoices, languageOptions, selectedLanguages, selectedCount, totalRequiredLanguages, onToggleLanguage }: BackgroundDetailsProps) {
   return (
     <div>
       <h2 className="text-2xl font-bold">{bg.name}</h2>
-      <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{bg.description}</p>
+      <div className="mt-4 flex gap-2">
+        {bg.abilityScores.map((a) => (
+          <span key={a} className="rounded bg-primary/10 border border-primary/30 px-3 py-1.5 text-sm font-medium">
+            {ABILITY_SHORT[a]} — {ABILITY_LABELS[a]}
+          </span>
+        ))}
+      </div>
 
-      <div className="mt-6 space-y-4">
-        {/* Ability Options info */}
-        {bg.abilityOptions && bg.abilityOptions.length === 3 && (
-          <Section title="Bônus de Atributos">
-            <p className="text-sm text-muted-foreground mb-2">
-              Este antecedente permite bônus em: 
-            </p>
-            <div className="flex gap-2">
-              {bg.abilityOptions.map((a) => (
-                <span key={a} className="rounded bg-primary/10 border border-primary/30 px-3 py-1.5 text-sm font-medium">
-                  {ABILITY_SHORT[a]} — {ABILITY_LABELS[a]}
-                </span>
-              ))}
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <HighlightCard title="Perícias Concedidas" icon={<ShieldCheck className="h-4 w-4" />}>
+          <ul className="list-disc pl-5 space-y-1">{bg.grantedSkills.map((s) => <li key={s}>{s}</li>)}</ul>
+        </HighlightCard>
+
+        <HighlightCard title="Ferramentas Concedidas" icon={<Wrench className="h-4 w-4" />}>
+          {bg.grantedTool.mode === "choice" && (
+            <div className="mb-2">
+              <p className="text-sm mb-2">{bg.grantedTool.choiceLabel}</p>
+              <div className="flex gap-2 flex-wrap">
+                {(bg.grantedTool.options ?? []).map((option) => (
+                  <Button key={option} variant={selectedTool === option ? "default" : "outline"} size="sm" onClick={() => onToolChoice(option)}>{option}</Button>
+                ))}
+              </div>
             </div>
-            <p className="mt-2 text-xs text-info">
-              <Info className="inline h-3 w-3 mr-1" />
-              A distribuição dos bônus (+2/+1 ou +1/+1/+1) é feita na etapa "Distribuir Atributos".
-            </p>
-          </Section>
-        )}
+          )}
+          {tool ? (
+            <div className="space-y-1 text-sm">
+              <p className="font-semibold">{tool.name}</p>
+              <p>Atributo: {tool.attribute} | Peso: {tool.weight}</p>
+              <p>Usar Objeto: {tool.useObject}</p>
+              {tool.variants && (
+                <Accordion type="single" collapsible>
+                  <AccordionItem value="variants">
+                    <AccordionTrigger>Variantes</AccordionTrigger>
+                    <AccordionContent>
+                      <ul className="list-disc pl-5">{tool.variants.map((v) => <li key={v.id}>{v.name}</li>)}</ul>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              )}
+            </div>
+          ) : <p className="text-sm text-muted-foreground">Selecione uma ferramenta para ver os detalhes.</p>}
+        </HighlightCard>
 
-        {/* Skills */}
-        <Section title="Perícias Concedidas">
-          <div className="flex flex-wrap gap-2">
-            {[...bg.skills].sort((a, b) => a.localeCompare(b, "pt-BR")).map((s) => (
-              <span key={s} className="rounded bg-secondary px-2 py-1 text-sm">{s}</span>
+        <HighlightCard title="Talento de Origem" icon={<Star className="h-4 w-4" />}>
+          <p className="font-semibold mb-1">{bg.originFeat.name}</p>
+          <ul className="list-disc pl-5 text-sm space-y-1 mb-3">{bg.originFeat.summary.map((item) => <li key={item}>{item}</li>)}</ul>
+          <Dialog>
+            <DialogTrigger asChild><Button size="sm" variant="outline">Detalhes</Button></DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{bg.originFeat.name}</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">{bg.originFeat.details}</p>
+            </DialogContent>
+          </Dialog>
+        </HighlightCard>
+
+        <HighlightCard title="Equipamento" icon={<Package className="h-4 w-4" />}>
+          <div className="space-y-3">
+            {bg.equipmentChoices.map((choice) => (
+              <button key={choice.id} onClick={() => onEquipmentChoice(choice.id)} className={`w-full rounded border p-3 text-left ${equipmentChoice === choice.id ? "border-primary bg-primary/10" : ""}`}>
+                <p className="font-semibold">{choice.label}</p>
+                {choice.items.length > 0 && <ul className="list-disc pl-5 text-sm">{choice.items.map((item) => <li key={item}>{item}</li>)}</ul>}
+                <p className="text-sm mt-1">{choice.gold} PO</p>
+              </button>
             ))}
           </div>
-        </Section>
+          <p className="mt-2 text-xs text-muted-foreground"><Info className="inline h-3 w-3 mr-1" />As escolhas ficam salvas na ficha automaticamente.</p>
+        </HighlightCard>
+      </div>
 
-        {/* Tools */}
-        {bg.tools.length > 0 && (
-          <Section title="Ferramentas Concedidas">
-            <div className="flex flex-wrap gap-2">
-              {[...bg.tools].sort((a, b) => a.localeCompare(b, "pt-BR")).map((t) => (
-                <span key={t} className="rounded bg-secondary px-2 py-1 text-sm">{t}</span>
-              ))}
-            </div>
-          </Section>
-        )}
-
-        {/* Languages */}
-        {bg.languages.length > 0 && (
-          <Section title="Idiomas Concedidos">
-            <div className="flex flex-wrap gap-2">
-              {[...bg.languages].sort((a, b) => a.localeCompare(b, "pt-BR")).map((l) => (
-                <span key={l} className="rounded bg-secondary px-2 py-1 text-sm">{l}</span>
-              ))}
-            </div>
-          </Section>
-        )}
-
-        <Section title="Idiomas">
-          <p className="text-sm text-muted-foreground mb-2">Comum (fixo)</p>
-          <p className="text-xs text-muted-foreground mb-3">
-            Escolha mais {baseLanguageChoices} idiomas comuns{bgLanguageRequired > 0 ? ` (+${bgLanguageRequired} do antecedente)` : ""}. Selecionados: {selectedCount}/{totalRequiredLanguages}
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {languageOptions
-              .slice()
-              .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
-              .map((l) => {
-                const selected = selectedLanguages.includes(l.id);
-                const languageInfo = commonLanguages.find((lang) => lang.id === l.id);
-                const disabled = !selected && selectedLanguages.length >= totalRequiredLanguages;
-                return (
-                  <button
-                    key={l.id}
-                    onClick={() => onToggleLanguage(l.id)}
-                    disabled={disabled}
-                    className={`rounded border px-2 py-1 text-sm text-left ${selected ? "border-primary bg-primary/10" : disabled ? "opacity-40 cursor-not-allowed" : "hover:bg-secondary"}`}
-                  >
-                    <span className="font-medium">{l.name}</span>
-                    {languageInfo?.origin && (
-                      <span className="ml-1 text-xs text-muted-foreground">• {languageInfo.origin}</span>
-                    )}
-                  </button>
-                );
-              })}
-          </div>
-        </Section>
-
-        {/* Origin Feat */}
-        <Section title="Talento de Origem" badge={<FeatBadge />}>
-          <div className="rounded-md border bg-secondary/40">
-            <button onClick={onToggleFeat} className="flex w-full items-center justify-between p-3">
-              <div className="flex items-center gap-2">
-                <Star className="h-4 w-4 text-primary" />
-                <span className="font-medium text-sm">{bg.originFeat.name}</span>
-              </div>
-              {featExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-            </button>
-            {featExpanded && (
-              <p className="px-3 pb-3 text-xs text-muted-foreground leading-relaxed">{bg.originFeat.description}</p>
-            )}
-          </div>
-        </Section>
-
-        {/* Equipment */}
-        <Section title="Equipamento">
-          {bg.equipmentChoices && bg.equipmentChoices.length > 0 ? (
-            <div className="space-y-3">
-              {bg.equipmentChoices.map((choice) => (
-                <div key={choice.id} className="rounded border bg-secondary/30 p-3">
-                  <p className="text-sm font-medium mb-1">{choice.label}</p>
-                  {choice.items.length > 0 && (
-                    <ul className="list-disc ml-5 text-sm space-y-1 mb-1">
-                      {choice.items.map((e) => (
-                        <li key={e}>{e}</li>
-                      ))}
-                    </ul>
-                  )}
-                  {choice.gold > 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      <Package className="inline h-3.5 w-3.5 mr-1" />{choice.gold} PO
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <>
-              {bg.equipment.items.length > 0 && (
-                <ul className="list-disc ml-5 text-sm space-y-1 mb-2">
-                  {[...bg.equipment.items].sort((a, b) => a.localeCompare(b, "pt-BR")).map((e) => (
-                    <li key={e}>{e}</li>
-                  ))}
-                </ul>
-              )}
-              {bg.equipment.gold > 0 && (
-                <p className="text-sm text-muted-foreground">
-                  <Package className="inline h-3.5 w-3.5 mr-1" />{bg.equipment.gold} PO
-                </p>
-              )}
-            </>
-          )}
-          <p className="text-xs text-info mt-2">
-            <Info className="inline h-3 w-3 mr-1" />
-            O equipamento do antecedente será aplicado na etapa 5: Equipamentos.
-          </p>
-        </Section>
+      <div className="mt-5 rounded border p-3 text-sm text-muted-foreground flex items-center gap-2">
+        <ScrollText className="h-4 w-4" />
+        Estes blocos são sempre exibidos e atualizados com a origem selecionada.
       </div>
     </div>
   );
 }
 
-// ─── Helpers ───
-
-function Section({ title, badge, children }: { title: string; badge?: React.ReactNode; children: React.ReactNode }) {
+function HighlightCard({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
   return (
     <div className="rounded-lg border bg-card p-4">
-      <div className="mb-2 flex items-center gap-2">
-        <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">{title}</h3>
-        {badge}
+      <div className="mb-3 flex items-center gap-2">
+        {icon}
+        <h3 className="text-base font-bold">{title}</h3>
       </div>
-      <div>{children}</div>
+      {children}
     </div>
-  );
-}
-
-function FeatBadge() {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-      <Star className="h-3 w-3" />
-      Automático
-    </span>
   );
 }
