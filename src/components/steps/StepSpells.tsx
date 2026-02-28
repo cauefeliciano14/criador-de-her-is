@@ -2,7 +2,7 @@ import { useBuilderStore } from "@/state/builderStore";
 import { useCharacterStore } from "@/state/characterStore";
 import { classes } from "@/data/classes";
 import { getSpellSchools, type SpellData } from "@/data/spells";
-import { spellsByClassId } from "@/data/indexes";
+import { spells as allSpellsData } from "@/data/spells";
 import {
   ABILITIES,
   calcAbilityMod,
@@ -14,6 +14,15 @@ import { useEffect, useMemo, useState } from "react";
 import { Search, Plus, Minus, Info, BookOpen, Sparkles, Flame, Eye, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import {
+  filterSpellsByClass,
+  formatSpellClassesForDisplay,
+  getSelectedClassId,
+  getSpellLimitsAtLevel1,
+  isSpellcastingClass,
+  spellMatchesClass,
+} from "@/utils/spellsByClass";
 import {
   Dialog,
   DialogContent,
@@ -35,11 +44,13 @@ const LEVEL_LABELS: Record<number, string> = {
 };
 
 export function StepSpells() {
+  const { toast } = useToast();
   const completeStep = useBuilderStore((s) => s.completeStep);
   const uncompleteStep = useBuilderStore((s) => s.uncompleteStep);
   const setMissing = useBuilderStore((s) => s.setMissing);
 
   const classId = useCharacterStore((s) => s.class);
+  const selectedClassId = getSelectedClassId({ class: classId });
   const abilityScores = useCharacterStore((s) => s.abilityScores);
   const racialBonuses = useCharacterStore((s) => s.racialBonuses);
   const backgroundBonuses = useCharacterStore((s) => s.backgroundBonuses);
@@ -75,7 +86,7 @@ export function StepSpells() {
   // Limits
 
   const cantripsLimit = useMemo(() => {
-    if (!sc) return 0;
+    if (!sc) return getSpellLimitsAtLevel1(selectedClassId).cantrips;
     const entries = Object.entries(sc.cantripsKnownAtLevel)
       .map(([l, c]) => [Number(l), c] as [number, number])
       .sort((a, b) => a[0] - b[0]);
@@ -91,7 +102,7 @@ export function StepSpells() {
       limit += 1;
     }
     return limit;
-  }, [sc, level, classId, classFeatureChoices]);
+  }, [sc, level, classId, classFeatureChoices, selectedClassId]);
 
   const availableSlots = useMemo(() => {
     if (!sc) return {} as Record<number, number>;
@@ -105,7 +116,7 @@ export function StepSpells() {
   }, [availableSlots]);
 
   const preparedLimit = useMemo(() => {
-    if (!sc) return 0;
+    if (!sc) return getSpellLimitsAtLevel1(selectedClassId).prepared;
     if (sc.type === "prepared") {
       return Math.max(1, abilityMod + level);
     }
@@ -122,18 +133,19 @@ export function StepSpells() {
       return limit;
     }
     return Math.max(1, abilityMod + level);
-  }, [sc, abilityMod, level]);
+  }, [sc, abilityMod, level, selectedClassId]);
 
   const spellTypeLabel = sc?.type === "known" || sc?.type === "pact" ? "Conhecidas" : "Preparadas";
 
   // ── Available spells for this class ──
-  const classSpells = useMemo(
-    () =>
-      (classId ? spellsByClassId[classId] ?? [] : [])
-        .slice()
-        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
-    [classId]
-  );
+  const spellsFilteredByClass = useMemo(() => {
+    if (!selectedClassId) return [];
+    return filterSpellsByClass(allSpellsData, selectedClassId)
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  }, [selectedClassId]);
+
+  const classSpells = useMemo(() => spellsFilteredByClass, [spellsFilteredByClass]);
 
   // ── Filters ──
   const [search, setSearch] = useState("");
@@ -178,9 +190,14 @@ export function StepSpells() {
   const selectedPrepared = spellsState.prepared;
 
   const toggleSpell = (spell: SpellData) => {
-    const selected = isSelected(spell.id, spell.level);
-    const canAddCantrip = selected || selectedCantrips.length < cantripsLimit;
-    const canAddPrepared = selected || selectedPrepared.length < preparedLimit;
+    if (!selectedClassId || !spellMatchesClass(spell, selectedClassId)) {
+      toast({
+        title: "Magia incompatível",
+        description: "Esta magia não pertence à lista da classe selecionada.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (spell.level === 0) {
       if (!canAddCantrip) return;
@@ -217,13 +234,23 @@ export function StepSpells() {
     // We don't call completeStep/uncompleteStep here as Spells is embedded in Sheet
   }, [selectedCantrips.length, selectedPrepared.length, cantripsLimit, preparedLimit, sc]);
 
-  // ── No spellcasting ──
-  if (!sc || !cls) {
+  if (!selectedClassId) {
+    return (
+      <div className="p-6">
+        <h2 className="text-2xl font-bold mb-1">Magias</h2>
+        <div className="rounded-lg border bg-card p-6 text-center text-muted-foreground">
+          <p>Selecione uma classe para ver magias.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isSpellcastingClass(selectedClassId) || !sc || !cls) {
     return (
       <div className="p-6">
         <h2 className="text-2xl font-bold mb-1">Magias</h2>
         <p className="text-sm text-muted-foreground mb-6">
-          Sua classe não possui conjuração.
+          Esta classe não conjura magias.
         </p>
         <div className="rounded-lg border bg-card p-6 text-center text-muted-foreground">
           <p>Esta etapa não se aplica ao seu personagem.</p>
@@ -516,7 +543,7 @@ export function StepSpells() {
                 </div>
                 <div className="border-t pt-3">
                   <p className="text-xs text-muted-foreground">
-                    Classes: {detailSpell.classes.join(", ")}
+                    Classes: {formatSpellClassesForDisplay(detailSpell).join(", ")}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Fonte: {detailSpell.source.book}
