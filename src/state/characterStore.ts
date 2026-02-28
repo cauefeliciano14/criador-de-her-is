@@ -382,6 +382,10 @@ export const useCharacterStore = create<CharacterState & CharacterActions>()(
         const updated = sanitizeChoiceSelections({
           ...current,
           selectedCantrips: next,
+          choiceSelections: {
+            ...current.choiceSelections,
+            cantrips: next,
+          },
           spells: { ...current.spells, cantrips: next },
         } as CharacterState);
         const derived = instrumentedRecalc(updated);
@@ -396,6 +400,10 @@ export const useCharacterStore = create<CharacterState & CharacterActions>()(
         const updated = sanitizeChoiceSelections({
           ...current,
           selectedSpells: next,
+          choiceSelections: {
+            ...current.choiceSelections,
+            spells: next,
+          },
           spells: { ...current.spells, prepared: next },
         } as CharacterState);
         const derived = instrumentedRecalc(updated);
