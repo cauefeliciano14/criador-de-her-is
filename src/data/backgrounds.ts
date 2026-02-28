@@ -1,225 +1,263 @@
 import type { AbilityKey } from "@/utils/calculations";
+import { feats } from "@/data/feats";
 
-export interface OriginFeat {
-  id: string;
-  name: string;
-  description: string;
+export type BackgroundToolGrant = string;
+
+export interface BackgroundEquipmentItem {
+  itemId: string;
+  qty: number;
 }
 
-export interface BackgroundAbilityBonuses {
-  mode: "fixed" | "choose";
-  fixed?: Partial<Record<AbilityKey, number>>;
-  choose?: {
-    choices: number;
-    bonus: number;
-    from: AbilityKey[];
-    maxPerAbility: number;
-  };
+export interface BackgroundEquipmentOption {
+  items: BackgroundEquipmentItem[];
+  gold: number;
 }
 
 export interface Background {
   id: string;
   name: string;
   description: string;
-  abilityBonuses: BackgroundAbilityBonuses;
-  /** 3 atributos elegíveis para bônus (+2/+1 ou +1/+1/+1) */
   abilityOptions: AbilityKey[];
+  skillsGranted: string[];
+  toolsGranted: BackgroundToolGrant[];
+  languages: string[];
+  originFeatId: string;
+  equipmentOptionA: BackgroundEquipmentOption;
+  equipmentOptionB: { gold: 50 };
+  abilityBonuses: { mode: "choose" };
+  /** Compat legada */
   skills: string[];
   tools: string[];
-  languages: string[];
-  originFeat: OriginFeat;
-  equipmentChoices?: {
-    id: string;
-    label: string;
-    items: string[];
-    gold: number;
-  }[];
-  equipment: {
-    items: string[];
-    gold: number;
+  originFeat: { id: string; name: string; description: string };
+  /** Compat legada para a etapa de equipamento */
+  equipmentChoices: { id: "A" | "B"; label: string; items: string[]; gold: number }[];
+}
+
+const makeItems = (items: Array<[string, number]>): BackgroundEquipmentItem[] =>
+  items.map(([itemId, qty]) => ({ itemId, qty }));
+
+function makeBackground(input: Omit<Background, "abilityBonuses" | "equipmentChoices">): Background {
+  const optionAItemsAsText = input.equipmentOptionA.items.flatMap((entry) =>
+    Array.from({ length: entry.qty }, () => entry.itemId)
+  );
+
+  const feat = feats.find((item) => item.id === input.originFeatId);
+  const toLegacyTool = (toolId: string) => {
+    if (toolId === "choose_musical_instrument") return "Um instrumento à sua escolha";
+    if (toolId === "choose_artisans_tools") return "Uma ferramenta de artesão à sua escolha";
+    if (toolId === "choose_gaming_set") return "Um tipo de jogo à sua escolha";
+    return toolId;
+  };
+
+  return {
+    ...input,
+    abilityBonuses: { mode: "choose" },
+    skills: input.skillsGranted,
+    tools: input.toolsGranted.map(toLegacyTool),
+    originFeat: { id: input.originFeatId, name: feat?.name ?? input.originFeatId, description: feat?.description ?? "" },
+    equipmentChoices: [
+      { id: "A", label: "Pacote do antecedente", items: optionAItemsAsText, gold: input.equipmentOptionA.gold },
+      { id: "B", label: "Riqueza inicial alternativa", items: [], gold: input.equipmentOptionB.gold },
+    ],
   };
 }
 
 export const backgrounds: Background[] = [
-  {
-    id: "acolito", name: "Acólito",
+  makeBackground({
+    id: "acolito",
+    name: "Acólito",
     description: "Você passou a vida nos templos, estudando tradição sagrada e realizando ritos.",
-    abilityBonuses: { mode: "choose" },
     abilityOptions: ["int", "wis", "cha"],
-    skills: ["Intuição", "Religião"],
-    tools: ["Kit de Herbalismo"],
+    skillsGranted: ["Intuição", "Religião"],
+    toolsGranted: ["kit-herbalismo"],
     languages: ["Celestial"],
-    originFeat: { id: "curandeiro", name: "Curandeiro", description: "Use kit de curandeiro para restaurar 1d6+4+nível PV. Como ação, restaure 2d6+mod. SAB PV." },
-    equipment: { items: ["Livro de orações", "Símbolo sagrado", "5 varetas de incenso", "Vestimentas", "Kit de Herbalismo"], gold: 15 },
-  },
-  {
-    id: "andarilho", name: "Andarilho",
+    originFeatId: "curandeiro",
+    equipmentOptionA: {
+      items: makeItems([["Livro de orações", 1], ["Símbolo sagrado", 1], ["Vareta de incenso", 5], ["Vestimentas", 1], ["Kit de Herbalismo", 1]]),
+      gold: 15,
+    },
+    equipmentOptionB: { gold: 50 },
+  }),
+  makeBackground({
+    id: "andarilho",
+    name: "Andarilho",
     description: "Você cresceu nas terras selvagens, longe da civilização, vivendo da terra.",
-    abilityBonuses: { mode: "choose" },
     abilityOptions: ["str", "dex", "wis"],
-    skills: ["Atletismo", "Sobrevivência"],
-    tools: ["Um instrumento musical"],
+    skillsGranted: ["Atletismo", "Sobrevivência"],
+    toolsGranted: ["choose_musical_instrument"],
     languages: ["Um idioma à sua escolha"],
-    originFeat: { id: "atleta", name: "Atleta", description: "+1 FOR ou DES. Levantar-se custa 1,5m. Escalar sem custo extra." },
-    equipment: { items: ["Bordão", "Armadilha de caça", "Troféu de animal", "Roupas de viajante"], gold: 10 },
-  },
-  {
-    id: "artesao", name: "Artesão",
+    originFeatId: "atleta",
+    equipmentOptionA: { items: makeItems([["Bordão", 1], ["Armadilha de caça", 1], ["Troféu de animal", 1], ["Roupas de viajante", 1]]), gold: 10 },
+    equipmentOptionB: { gold: 50 },
+  }),
+  makeBackground({
+    id: "artesao",
+    name: "Artesão",
     description: "Membro de uma guilda de artesãos, com habilidades práticas e contatos comerciais.",
-    abilityBonuses: { mode: "choose" },
     abilityOptions: ["str", "dex", "int"],
-    skills: ["Intuição", "Persuasão"],
-    tools: ["Um tipo de ferramenta de artesão"],
+    skillsGranted: ["Intuição", "Persuasão"],
+    toolsGranted: ["choose_artisans_tools"],
     languages: ["Um idioma à sua escolha"],
-    originFeat: { id: "sortudo", name: "Sortudo", description: "3 pontos de sorte para rolar d20 adicional. Recupera em descanso longo." },
-    equipment: { items: ["Ferramentas de artesão", "Carta de apresentação da guilda", "Roupas de viajante"], gold: 15 },
-  },
-  {
-    id: "artista", name: "Artista",
+    originFeatId: "sortudo",
+    equipmentOptionA: { items: makeItems([["Ferramentas de artesão", 1], ["Carta de apresentação da guilda", 1], ["Roupas de viajante", 1]]), gold: 15 },
+    equipmentOptionB: { gold: 50 },
+  }),
+  makeBackground({
+    id: "artista",
+    name: "Artista",
     description: "Você encanta audiências com sua performance, seja música, dança ou teatro.",
-    abilityBonuses: { mode: "choose" },
     abilityOptions: ["str", "dex", "cha"],
-    skills: ["Acrobacia", "Atuação"],
-    tools: ["Kit de disfarce", "Um instrumento musical"],
+    skillsGranted: ["Acrobacia", "Atuação"],
+    toolsGranted: ["kit-disfarce", "choose_musical_instrument"],
     languages: [],
-    originFeat: { id: "inspirador", name: "Inspirador", description: "+1 CAR (max 20). Após descanso longo, conceda PV temp. a até 6 aliados." },
-    equipment: { items: ["Instrumento musical", "Carta de apresentação", "Fantasia", "Roupas finas"], gold: 15 },
-  },
-  {
-    id: "charlatao", name: "Charlatão",
+    originFeatId: "inspirador",
+    equipmentOptionA: { items: makeItems([["Instrumento musical", 1], ["Carta de apresentação", 1], ["Fantasia", 1], ["Roupas finas", 1]]), gold: 15 },
+    equipmentOptionB: { gold: 50 },
+  }),
+  makeBackground({
+    id: "charlatao",
+    name: "Charlatão",
     description: "Você sempre teve talento para enganar as pessoas e lucrar com isso.",
-    abilityBonuses: { mode: "choose" },
     abilityOptions: ["dex", "con", "cha"],
-    skills: ["Enganação", "Prestidigitação"],
-    tools: ["Kit de falsificação", "Kit de disfarce"],
+    skillsGranted: ["Enganação", "Prestidigitação"],
+    toolsGranted: ["kit-falsificacao", "kit-disfarce"],
     languages: [],
-    originFeat: { id: "ator", name: "Ator", description: "+1 CAR (max 20). Vantagem em Enganação e Atuação ao se passar por outro." },
-    equipment: { items: ["Kit de disfarce", "Roupas finas", "Ferramentas de vigarista"], gold: 15 },
-  },
-  {
-    id: "criminoso", name: "Criminoso",
+    originFeatId: "ator",
+    equipmentOptionA: { items: makeItems([["Kit de disfarce", 1], ["Roupas finas", 1], ["Ferramentas de vigarista", 1]]), gold: 15 },
+    equipmentOptionB: { gold: 50 },
+  }),
+  makeBackground({
+    id: "criminoso",
+    name: "Criminoso",
     description: "Você tem histórico de infringir a lei e contatos no submundo.",
-    abilityBonuses: { mode: "choose" },
     abilityOptions: ["dex", "con", "int"],
-    skills: ["Enganação", "Furtividade"],
-    tools: ["Ferramentas de ladrão", "Um tipo de jogo"],
+    skillsGranted: ["Enganação", "Furtividade"],
+    toolsGranted: ["ferramentas-ladrao", "choose_gaming_set"],
     languages: [],
-    originFeat: { id: "alerta", name: "Alerta", description: "+5 Iniciativa. Não pode ser surpreendido. Criaturas ocultas não ganham vantagem." },
-    equipment: { items: ["Pé de cabra", "Roupas escuras com capuz", "Ferramentas de ladrão"], gold: 15 },
-  },
-  {
-    id: "eremita", name: "Eremita",
+    originFeatId: "alerta",
+    equipmentOptionA: { items: makeItems([["Pé de cabra", 1], ["Roupas escuras com capuz", 1], ["Ferramentas de ladrão", 1]]), gold: 15 },
+    equipmentOptionB: { gold: 50 },
+  }),
+  makeBackground({
+    id: "eremita",
+    name: "Eremita",
     description: "Você viveu em reclusão por muitos anos, buscando iluminação espiritual.",
-    abilityBonuses: { mode: "choose" },
     abilityOptions: ["con", "wis", "cha"],
-    skills: ["Medicina", "Religião"],
-    tools: ["Kit de Herbalismo"],
+    skillsGranted: ["Medicina", "Religião"],
+    toolsGranted: ["kit-herbalismo"],
     languages: ["Um idioma à sua escolha"],
-    originFeat: { id: "curandeiro", name: "Curandeiro", description: "Use kit de curandeiro para restaurar 1d6+4+nível PV." },
-    equipment: { items: ["Pergaminho de estudo", "Kit de Herbalismo", "Cobertor de inverno", "Roupas comuns"], gold: 5 },
-  },
-  {
-    id: "escriba", name: "Escriba",
+    originFeatId: "curandeiro",
+    equipmentOptionA: { items: makeItems([["Pergaminho de estudo", 1], ["Kit de Herbalismo", 1], ["Cobertor de inverno", 1], ["Roupas comuns", 1]]), gold: 5 },
+    equipmentOptionB: { gold: 50 },
+  }),
+  makeBackground({
+    id: "escriba",
+    name: "Escriba",
     description: "Você estudou em uma academia arcana ou biblioteca, absorvendo conhecimento e tradições escritas.",
-    abilityBonuses: { mode: "choose" },
     abilityOptions: ["con", "int", "wis"],
-    skills: ["Arcanismo", "Investigação"],
-    tools: [],
+    skillsGranted: ["Arcanismo", "Investigação"],
+    toolsGranted: ["calligrapher-supplies"],
     languages: ["Dois idiomas à sua escolha"],
-    originFeat: { id: "iniciado-em-magia", name: "Iniciado em Magia", description: "Aprenda 2 truques e 1 magia de 1º nível de uma lista, conjurável 1/dia." },
-    equipment: { items: ["Grimório", "Tinta", "Caneta", "Bolsa de componentes", "Roupas de estudioso"], gold: 10 },
-  },
-  {
-    id: "fazendeiro", name: "Fazendeiro",
+    originFeatId: "iniciado-em-magia",
+    equipmentOptionA: { items: makeItems([["Grimório", 1], ["Tinta", 1], ["Caneta", 1], ["Bolsa de componentes", 1], ["Roupas de estudioso", 1]]), gold: 10 },
+    equipmentOptionB: { gold: 50 },
+  }),
+  makeBackground({
+    id: "fazendeiro",
+    name: "Fazendeiro",
     description: "Você é de origem humilde, tendo crescido trabalhando a terra e cuidando de animais.",
-    abilityBonuses: { mode: "choose" },
     abilityOptions: ["str", "con", "wis"],
-    skills: ["Adestrar Animais", "Sobrevivência"],
-    tools: ["Um tipo de ferramenta de artesão", "Veículos terrestres"],
+    skillsGranted: ["Adestrar Animais", "Sobrevivência"],
+    toolsGranted: ["choose_artisans_tools", "veiculos-terrestres"],
     languages: [],
-    originFeat: { id: "sentinela", name: "Sentinela", description: "Reação para atacar quem atacar aliado. Alvo de ataque de oportunidade tem deslocamento 0." },
-    equipment: { items: ["Ferramentas de artesão", "Pá", "Panela de ferro", "Roupas comuns"], gold: 10 },
-  },
-  {
-    id: "guarda", name: "Guarda",
+    originFeatId: "sentinela",
+    equipmentOptionA: { items: makeItems([["Ferramentas de artesão", 1], ["Pá", 1], ["Panela de ferro", 1], ["Roupas comuns", 1]]), gold: 10 },
+    equipmentOptionB: { gold: 50 },
+  }),
+  makeBackground({
+    id: "guarda",
+    name: "Guarda",
     description: "Você serviu em um exército ou milícia, treinando nas artes da guerra e da vigilância.",
-    abilityBonuses: { mode: "choose" },
     abilityOptions: ["str", "con", "wis"],
-    skills: ["Atletismo", "Intimidação"],
-    tools: ["Um tipo de jogo", "Veículos terrestres"],
+    skillsGranted: ["Atletismo", "Intimidação"],
+    toolsGranted: ["choose_gaming_set", "veiculos-terrestres"],
     languages: [],
-    originFeat: { id: "sentinela", name: "Sentinela", description: "Reação para atacar quem atacar aliado. Alvo com deslocamento 0 em oportunidade." },
-    equipment: { items: ["Insígnia de patente", "Troféu de inimigo", "Dados de osso", "Roupas comuns"], gold: 10 },
-  },
-  {
-    id: "guia", name: "Guia",
+    originFeatId: "sentinela",
+    equipmentOptionA: { items: makeItems([["Insígnia de patente", 1], ["Troféu de inimigo", 1], ["Dados de osso", 1], ["Roupas comuns", 1]]), gold: 10 },
+    equipmentOptionB: { gold: 50 },
+  }),
+  makeBackground({
+    id: "guia",
+    name: "Guia",
     description: "Você viajou por terras distantes em busca de significado ou proteção, guiando viajantes.",
-    abilityBonuses: { mode: "choose" },
     abilityOptions: ["dex", "con", "wis"],
-    skills: ["Intuição", "Sobrevivência"],
-    tools: [],
+    skillsGranted: ["Intuição", "Sobrevivência"],
+    toolsGranted: ["cartographer-tools"],
     languages: ["Dois idiomas à sua escolha"],
-    originFeat: { id: "observador", name: "Observador", description: "+1 INT ou SAB. +5 Percepção e Investigação passivas." },
-    equipment: { items: ["Cobertor de inverno", "Roupas de viajante", "Diário de viagem"], gold: 10 },
-  },
-  {
-    id: "marinheiro", name: "Marinheiro",
+    originFeatId: "observador",
+    equipmentOptionA: { items: makeItems([["Cobertor de inverno", 1], ["Roupas de viajante", 1], ["Diário de viagem", 1]]), gold: 10 },
+    equipmentOptionB: { gold: 50 },
+  }),
+  makeBackground({
+    id: "marinheiro",
+    name: "Marinheiro",
     description: "Você navegou os mares por anos, enfrentando tempestades e aventuras.",
-    abilityBonuses: { mode: "choose" },
     abilityOptions: ["str", "dex", "con"],
-    skills: ["Atletismo", "Percepção"],
-    tools: ["Ferramentas de navegador", "Veículos aquáticos"],
+    skillsGranted: ["Atletismo", "Percepção"],
+    toolsGranted: ["ferramentas-navegador", "veiculos-aquaticos"],
     languages: [],
-    originFeat: { id: "atleta", name: "Atleta", description: "+1 FOR ou DES. Levantar-se custa 1,5m. Escalar sem custo extra." },
-    equipment: { items: ["Bastão", "15m de corda de seda", "Amuleto de sorte", "Roupas comuns"], gold: 10 },
-  },
-  {
-    id: "mercador", name: "Mercador",
+    originFeatId: "atleta",
+    equipmentOptionA: { items: makeItems([["Bordão", 1], ["15m de corda de seda", 1], ["Amuleto de sorte", 1], ["Roupas comuns", 1]]), gold: 10 },
+    equipmentOptionB: { gold: 50 },
+  }),
+  makeBackground({
+    id: "mercador",
+    name: "Mercador",
     description: "Você cresceu nas ruas e mercados, sobrevivendo por esperteza e negociação.",
-    abilityBonuses: { mode: "choose" },
     abilityOptions: ["con", "int", "cha"],
-    skills: ["Persuasão", "Prestidigitação"],
-    tools: ["Kit de disfarce", "Ferramentas de ladrão"],
+    skillsGranted: ["Persuasão", "Prestidigitação"],
+    toolsGranted: ["kit-disfarce", "ferramentas-ladrao"],
     languages: [],
-    originFeat: { id: "sortudo", name: "Sortudo", description: "3 pontos de sorte para rolar d20 adicional." },
-    equipment: { items: ["Balança de mercador", "Mapa da cidade", "Roupas comuns"], gold: 15 },
-  },
-  {
-    id: "nobre", name: "Nobre",
+    originFeatId: "sortudo",
+    equipmentOptionA: { items: makeItems([["Balança de mercador", 1], ["Mapa da cidade", 1], ["Roupas comuns", 1]]), gold: 15 },
+    equipmentOptionB: { gold: 50 },
+  }),
+  makeBackground({
+    id: "nobre",
+    name: "Nobre",
     description: "Nascido em família de prestígio, você carrega título e responsabilidades.",
-    abilityBonuses: { mode: "choose" },
     abilityOptions: ["str", "int", "cha"],
-    skills: ["História", "Persuasão"],
-    tools: ["Um tipo de jogo"],
+    skillsGranted: ["História", "Persuasão"],
+    toolsGranted: ["choose_gaming_set"],
     languages: ["Um idioma à sua escolha"],
-    originFeat: { id: "inspirador", name: "Inspirador", description: "+1 CAR (max 20). Após descanso longo, PV temp. a até 6 aliados." },
-    equipment: { items: ["Roupas finas", "Anel de sinete", "Pergaminho de linhagem"], gold: 25 },
-  },
-  {
-    id: "sabio", name: "Sábio",
+    originFeatId: "inspirador",
+    equipmentOptionA: { items: makeItems([["Roupas finas", 1], ["Anel de sinete", 1], ["Pergaminho de linhagem", 1]]), gold: 25 },
+    equipmentOptionB: { gold: 50 },
+  }),
+  makeBackground({
+    id: "sabio",
+    name: "Sábio",
     description: "Você dedicou anos ao estudo acadêmico e à busca do conhecimento.",
-    abilityBonuses: { mode: "choose" },
     abilityOptions: ["con", "int", "wis"],
-    skills: ["Arcanismo", "História"],
-    tools: [],
+    skillsGranted: ["Arcanismo", "História"],
+    toolsGranted: ["calligrapher-supplies"],
     languages: ["Dois idiomas à sua escolha"],
-    originFeat: { id: "observador", name: "Observador", description: "+1 INT ou SAB. +5 Percepção e Investigação passivas. Leitura labial." },
-    equipment: { items: ["Tinta", "Caneta", "Faca pequena", "Carta de universidade", "Roupas comuns"], gold: 10 },
-  },
-  {
-    id: "soldado", name: "Soldado",
+    originFeatId: "observador",
+    equipmentOptionA: { items: makeItems([["Tinta", 1], ["Caneta", 1], ["Faca pequena", 1], ["Carta de universidade", 1], ["Roupas comuns", 1]]), gold: 10 },
+    equipmentOptionB: { gold: 50 },
+  }),
+  makeBackground({
+    id: "soldado",
+    name: "Soldado",
     description: "Você serviu como soldado em exércitos ou milícias, treinado para combate e disciplina.",
-    abilityBonuses: { mode: "choose" },
     abilityOptions: ["str", "dex", "con"],
-    skills: ["Atletismo", "Intimidação"],
-    tools: ["Um instrumento musical"],
+    skillsGranted: ["Atletismo", "Intimidação"],
+    toolsGranted: ["choose_gaming_set"],
     languages: ["Um idioma à sua escolha"],
-    originFeat: { id: "combate-com-armas-grandes", name: "Combate com Armas Grandes", description: "Rerrole dados de dano 1–2 com armas de duas mãos." },
-    equipment: { items: ["Bastão", "Armadilha de caça", "Troféu de animal", "Roupas de viajante"], gold: 10 },
-  },
-];
+    originFeatId: "combate-com-armas-grandes",
+    equipmentOptionA: { items: makeItems([["Bastão", 1], ["Armadilha de caça", 1], ["Troféu de animal", 1], ["Roupas de viajante", 1]]), gold: 10 },
+    equipmentOptionB: { gold: 50 },
+  }),
+].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
-/** Lookup map */
-export const backgroundsById: Record<string, Background> = Object.fromEntries(
-  backgrounds.map((b) => [b.id, b])
-);
+export const backgroundsById: Record<string, Background> = Object.fromEntries(backgrounds.map((b) => [b.id, b]));

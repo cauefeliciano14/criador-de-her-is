@@ -123,6 +123,8 @@ export interface CharacterState {
   classSkillChoices: string[];
   classEquipmentChoice: string | null;
   backgroundEquipmentChoice: string | null;
+  backgroundEquipmentItems: string[];
+  backgroundGold: number;
   proficiencies: { armor: string[]; weapons: string[]; tools: string[]; languages: string[] };
   hitDie: number;
   hitPoints: { max: number; current: number };
@@ -171,6 +173,8 @@ const DEFAULT_CHARACTER: CharacterState = {
   abilityMods: { str: -1, dex: -1, con: -1, int: -1, wis: -1, cha: -1 },
   proficiencyBonus: 2,
   savingThrows: [], skills: [], classSkillChoices: [], classEquipmentChoice: null, backgroundEquipmentChoice: null,
+  backgroundEquipmentItems: [],
+  backgroundGold: 0,
   proficiencies: { armor: [], weapons: [], tools: [], languages: [] },
   hitDie: 8,
   hitPoints: { max: 8, current: 8 },
