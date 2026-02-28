@@ -270,7 +270,6 @@ function sanitizeChoiceSelections(char: CharacterState): CharacterState {
     choiceSelections: nextSelections,
     classSkillChoices: nextSelections.classSkills,
     spells: { ...char.spells, cantrips: nextSelections.cantrips, prepared: nextSelections.spells },
-    raceChoices: { ...char.raceChoices },
   };
 }
 
