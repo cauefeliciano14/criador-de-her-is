@@ -29,9 +29,9 @@ describe("choice engine", () => {
       choiceSelections: { classSkills: [], languages: [], tools: [], instruments: [], cantrips: ["rajada-de-fogo"], spells: ["escudo-arcano"], raceChoice: null, classFeats: [] },
     });
     const req = getChoicesRequirements(char);
-    expect(req.cantrips.requiredCount).toBeGreaterThan(0);
-    expect(req.spells.requiredCount).toBeGreaterThan(0);
-    expect(req.cantrips.options.every((o) => typeof o.id === "string")).toBe(true);
+    expect(req.buckets.cantrips.requiredCount).toBeGreaterThan(0);
+    expect(req.buckets.spells.requiredCount).toBeGreaterThan(0);
+    expect(req.buckets.cantrips.options.every((o) => typeof o.id === "string")).toBe(true);
   });
 
   it("troca de classe invalida seleções antigas", () => {
@@ -41,12 +41,12 @@ describe("choice engine", () => {
       choiceSelections: { classSkills: [], languages: [], tools: [], instruments: [], cantrips: ["rajada-de-fogo"], spells: ["escudo-arcano"], raceChoice: null, classFeats: [] },
     });
     const reqWizard = getChoicesRequirements(wizard);
-    expect(reqWizard.cantrips.selectedIds).toContain("rajada-de-fogo");
+    expect(reqWizard.buckets.cantrips.selectedIds).toContain("rajada-de-fogo");
 
     const fighter = { ...wizard, class: "guerreiro" as const };
     const reqFighter = getChoicesRequirements(fighter);
-    expect(reqFighter.cantrips.requiredCount).toBe(0);
-    expect(reqFighter.cantrips.selectedIds).toEqual([]);
+    expect(reqFighter.buckets.cantrips.requiredCount).toBe(0);
+    expect(reqFighter.buckets.cantrips.selectedIds).toEqual([]);
   });
 
   it("escolha racial obrigatória usa chave canônica e zera pendência", () => {
