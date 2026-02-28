@@ -379,7 +379,6 @@ export const races: RaceData[] = [
           id: "altoElfo",
           name: "Altos Elfos",
           description: "Elfos graciosos e eruditos, com afinidade natural pela magia.",
-          availability: "planned",
           effects: {
             traits: [{ name: "Truque Extra", description: "Aprende um truque adicional à sua escolha." }],
           },
@@ -389,7 +388,6 @@ export const races: RaceData[] = [
           id: "drow",
           name: "Drow",
           description: "Elfos das profundezas, com visão superior e magia sombria.",
-          availability: "planned",
           effects: {
             traits: [
               { name: "Visão no Escuro Superior", description: "Visão no escuro até 36m." },
@@ -402,7 +400,6 @@ export const races: RaceData[] = [
           id: "elfoSilvestre",
           name: "Elfos Silvestres",
           description: "Elfos conectados à natureza, mestres da furtividade e arco.",
-          availability: "planned",
           effects: {
             traits: [{ name: "Máscara da Natureza", description: "Pode tentar se esconder mesmo quando levemente obscurecido por folhagem, chuva forte, neve caindo, neblina ou outros fenômenos naturais." }],
           },

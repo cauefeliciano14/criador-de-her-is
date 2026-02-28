@@ -141,6 +141,77 @@ function resolveCasterSpellLimit(character: CharacterState, classId: string) {
   return { cantrips, spells, options };
 }
 
+function normalizeSpellId(id: string) {
+  return normalize(id).replace(/[^a-z0-9]/g, "");
+}
+
+function findSpellByAnyId(id: string) {
+  const n = normalizeSpellId(id);
+  return (spellsByClassId.mago ?? [])
+    .concat(...Object.values(spellsByClassId))
+    .find((spell) => normalizeSpellId(spell.id) === n);
+}
+
+function resolveExtraMagicSources(character: CharacterState) {
+  const race = races.find((r) => r.id === character.race);
+  const background = backgrounds.find((b) => b.id === character.background);
+  const cantripOptions: Array<{ id: string; name: string; level: number }> = [];
+  const spellOptions: Array<{ id: string; name: string; level: number }> = [];
+  const fixedCantrips: string[] = [];
+  const fixedSpells: string[] = [];
+  let cantrips = 0;
+  let spells = 0;
+
+  const raceChoice = race?.raceChoice;
+  if (raceChoice) {
+    const raceChoiceKey = getCanonicalRaceChoiceKey(raceChoice.kind);
+    const selected = raceChoice.options.find((opt) => opt.id === character.raceChoices?.[raceChoiceKey]);
+    if (selected?.effects.spellsGranted?.length) {
+      for (const granted of selected.effects.spellsGranted) {
+        const spell = findSpellByAnyId(granted.spellId);
+        if (!spell) continue;
+        if (granted.level === 0) {
+          fixedCantrips.push(spell.id);
+          cantripOptions.push({ id: spell.id, name: spell.name, level: 0 });
+        } else {
+          fixedSpells.push(spell.id);
+          spellOptions.push({ id: spell.id, name: spell.name, level: spell.level });
+        }
+      }
+    }
+
+    if (race?.id === "elfo" && selected?.id === "altoElfo") {
+      const wizardCantrips = (spellsByClassId.mago ?? [])
+        .filter((spell) => spell.level === 0)
+        .map((spell) => ({ id: spell.id, name: spell.name, level: spell.level }));
+      cantripOptions.push(...wizardCantrips);
+      cantrips += 1;
+    }
+  }
+
+  if (background?.originFeat?.id === "iniciado-em-magia") {
+    const allowedClassIds = ["bardo", "clerigo", "druida", "feiticeiro", "bruxo", "mago"];
+    const magicInitiateSpells = Object.entries(spellsByClassId)
+      .filter(([classId]) => allowedClassIds.includes(classId))
+      .flatMap(([, spellsList]) => spellsList)
+      .filter((spell) => spell.level <= 1)
+      .map((spell) => ({ id: spell.id, name: spell.name, level: spell.level }));
+    cantripOptions.push(...magicInitiateSpells.filter((spell) => spell.level === 0));
+    spellOptions.push(...magicInitiateSpells.filter((spell) => spell.level === 1));
+    cantrips += 2;
+    spells += 1;
+  }
+
+  return {
+    cantrips,
+    spells,
+    cantripOptions,
+    spellOptions,
+    fixedCantrips,
+    fixedSpells,
+  };
+}
+
 export function getChoicesRequirements(character: CharacterState, datasets: ChoicesDatasets = DEFAULT_DATASETS, _canonicalSpecs?: unknown): ChoicesRequirements {
   const currentClass = datasets.classes.find((c) => c.id === character.class);
   const currentBackground = datasets.backgrounds.find((b) => b.id === character.background);
@@ -148,6 +219,7 @@ export function getChoicesRequirements(character: CharacterState, datasets: Choi
 
   const selections = character.choiceSelections ?? { classSkills: [], languages: [], tools: [], instruments: [], cantrips: [], spells: [], raceChoice: null, classFeats: [], skills: [] } as any;
   const spellData = character.class ? resolveCasterSpellLimit(character, character.class) : { cantrips: 0, spells: 0, options: [] as any[] };
+  const extraMagic = resolveExtraMagicSources(character);
 
   const classSkillRequired = currentClass ? (CANONICAL_CLASS_SKILL_COUNTS[currentClass.id] ?? currentClass.skillChoices.choose) : 0;
   const classSkillOptions = uniq((currentClass?.skillChoices.from ?? []).map((name) => skills.find((s) => normalize(s.name) === normalize(name))).filter(Boolean).map((s) => ({ id: (s as any).id, name: (s as any).name })));
@@ -199,8 +271,24 @@ export function getChoicesRequirements(character: CharacterState, datasets: Choi
       ...(character.class === "bardo" ? ["class:bardo:3"] : []),
       ...(reqCount(currentBackground?.tools, (v) => INSTRUMENT_RX.test(v)) > 0 && currentBackground ? [`background:${currentBackground.id}:${reqCount(currentBackground?.tools, (v) => INSTRUMENT_RX.test(v))}`] : []),
     ]),
-    cantrips: makeBucket(spellData.cantrips, selections.cantrips ?? [], uniq(spellData.options.filter((s) => s.level === 0).map((s) => ({ id: s.id, name: s.name }))), currentClass?.spellcasting ? [`class:${currentClass.id}:spellcasting`] : []),
-    spells: makeBucket(spellData.spells, selections.spells ?? [], uniq(spellData.options.filter((s) => s.level >= 1).map((s) => ({ id: s.id, name: s.name }))), currentClass?.spellcasting ? [`class:${currentClass.id}:spellcasting`] : []),
+    cantrips: makeBucket(
+      spellData.cantrips + extraMagic.cantrips,
+      [...(extraMagic.fixedCantrips ?? []), ...(selections.cantrips ?? [])],
+      uniq([...spellData.options, ...extraMagic.cantripOptions].filter((s) => s.level === 0).map((s) => ({ id: s.id, name: s.name }))),
+      [
+        ...(currentClass?.spellcasting ? [`class:${currentClass.id}:spellcasting`] : []),
+        ...(extraMagic.cantrips > 0 ? ["background-or-race:cantrips"] : []),
+      ]
+    ),
+    spells: makeBucket(
+      spellData.spells + extraMagic.spells,
+      [...(extraMagic.fixedSpells ?? []), ...(selections.spells ?? [])],
+      uniq([...spellData.options, ...extraMagic.spellOptions].filter((s) => s.level >= 1).map((s) => ({ id: s.id, name: s.name }))),
+      [
+        ...(currentClass?.spellcasting ? [`class:${currentClass.id}:spellcasting`] : []),
+        ...(extraMagic.spells > 0 ? ["background-or-race:spells"] : []),
+      ]
+    ),
     raceChoice: makeBucket(raceChoiceRequired, raceChoiceSelected ? [raceChoiceSelected] : [], uniq(raceChoiceOptionsReady.map((o) => ({ id: o.id, name: o.name }))), raceChoiceRequired > 0 && currentRace ? [`race:${currentRace.id}:${raceChoiceKey}`] : []),
     classFeats: makeBucket(classFeatRequired, selections.classFeats ?? [], classFeatOptions, classFeatRequired ? [`class:${character.class}:fighting-style`] : []),
   };

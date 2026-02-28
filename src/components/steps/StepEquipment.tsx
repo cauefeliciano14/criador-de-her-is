@@ -26,8 +26,6 @@ const PENDING_LABELS: Record<string, string> = {
   languages: "Idiomas",
   tools: "Ferramentas",
   instruments: "Instrumentos",
-  cantrips: "Truques",
-  spells: "Magias",
   raceChoice: "Escolha Racial",
   classFeats: "Talento de Classe",
 };
@@ -41,13 +39,14 @@ export function StepEquipment() {
 
   const cls = classes.find((c) => c.id === char.class);
   const selectedBg = backgrounds.find((b) => b.id === char.background);
-  const isSpellcaster = cls?.spellcasting != null;
   const hasEquipChoices = cls && cls.equipmentChoices.length > 0;
   const bgHasEquipChoices = (selectedBg?.equipmentChoices?.length ?? 0) > 0;
   const equipChoicePending = hasEquipChoices && !char.classEquipmentChoice;
   const bgEquipChoicePending = bgHasEquipChoices && !char.backgroundEquipmentChoice;
   const requirements = useMemo(() => getChoicesRequirements(char), [char]);
-  const pendingChoicesCount = Object.values(requirements.buckets).reduce((sum, bucket) => sum + bucket.pendingCount, 0);
+  const pendingChoicesCount = Object.entries(requirements.buckets)
+    .filter(([key]) => key !== "cantrips" && key !== "spells")
+    .reduce((sum, [, bucket]) => sum + bucket.pendingCount, 0);
 
   // ── Catalog state ──
   const [search, setSearch] = useState("");
@@ -336,7 +335,7 @@ export function StepEquipment() {
         <section className="space-y-2 rounded-lg border bg-card p-3">
           <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">Pendências obrigatórias</h3>
           <ul className="text-sm space-y-1">
-            {Object.entries(requirements.buckets).filter(([, bucket]) => bucket.pendingCount > 0).map(([id, bucket]) => (
+            {Object.entries(requirements.buckets).filter(([id, bucket]) => id !== "cantrips" && id !== "spells" && bucket.pendingCount > 0).map(([id, bucket]) => (
               <li key={id} className="text-warning">• {PENDING_LABELS[id] ?? id}: {bucket.pendingCount} pendente(s)</li>
             ))}
           </ul>
