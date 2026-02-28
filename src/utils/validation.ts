@@ -123,8 +123,8 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
       missing.push({
         id: "class-skills",
         label: `Perícias de classe incompletas (${chosen}/${needed})`,
-        stepId: "choices",
-        stepNumber: 6,
+        stepId: choicesStepId,
+        stepNumber: choicesStepNumber,
         severity: "required",
       });
     }
@@ -184,13 +184,11 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
       const val = cfc[check.key];
       const chosen = Array.isArray(val) ? val.length : (typeof val === "string" ? 1 : 0);
       if (chosen < check.count) {
-        const expertiseStepId = "choices";
-        const expertiseStepNumber = 6;
         missing.push({
           id: `expertise-${check.key}`,
           label: `${check.label}: ${chosen}/${check.count} escolhido(s)`,
-          stepId: expertiseStepId,
-          stepNumber: expertiseStepNumber,
+          stepId: choicesStepId,
+          stepNumber: choicesStepNumber,
           severity: "required",
         });
       }
