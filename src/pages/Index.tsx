@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { Header } from "@/components/Header";
 import { IdentityHeader } from "@/components/IdentityHeader";
 import { SidebarSteps } from "@/components/SidebarSteps";
@@ -12,6 +12,7 @@ import { backgrounds } from "@/data/backgrounds";
 import { races } from "@/data/races";
 import { validateCatalog } from "@/utils/validateCatalog";
 import { getDevAuditStatus } from "@/utils/validateData";
+import { lazyWithRetry } from "@/utils/lazyWithRetry";
 import { ListChecks, Loader2, PanelRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,13 +35,34 @@ if (!catalogResult.valid) {
 }
 
 // ── Lazy-loaded step components ──
-const StepClass = lazy(() => import("@/components/steps/StepClass").then(m => ({ default: m.StepClass })));
-const StepBackground = lazy(() => import("@/components/steps/StepBackground").then(m => ({ default: m.StepBackground })));
-const StepRace = lazy(() => import("@/components/steps/StepRace").then(m => ({ default: m.StepRace })));
-const StepAbilityMethod = lazy(() => import("@/components/steps/StepAbilityMethod").then(m => ({ default: m.StepAbilityMethod })));
-const StepEquipment = lazy(() => import("@/components/steps/StepEquipment").then(m => ({ default: m.StepEquipment })));
-const StepChoices = lazy(() => import("@/components/steps/StepChoices").then(m => ({ default: m.StepChoices })));
-const StepSheet = lazy(() => import("@/components/steps/StepSheet").then(m => ({ default: m.StepSheet })));
+const StepClass = lazyWithRetry(
+  () => import("@/components/steps/StepClass").then((m) => ({ default: m.StepClass })),
+  "StepClass",
+);
+const StepBackground = lazyWithRetry(
+  () => import("@/components/steps/StepBackground").then((m) => ({ default: m.StepBackground })),
+  "StepBackground",
+);
+const StepRace = lazyWithRetry(
+  () => import("@/components/steps/StepRace").then((m) => ({ default: m.StepRace })),
+  "StepRace",
+);
+const StepAbilityMethod = lazyWithRetry(
+  () => import("@/components/steps/StepAbilityMethod").then((m) => ({ default: m.StepAbilityMethod })),
+  "StepAbilityMethod",
+);
+const StepEquipment = lazyWithRetry(
+  () => import("@/components/steps/StepEquipment").then((m) => ({ default: m.StepEquipment })),
+  "StepEquipment",
+);
+const StepChoices = lazyWithRetry(
+  () => import("@/components/steps/StepChoices").then((m) => ({ default: m.StepChoices })),
+  "StepChoices",
+);
+const StepSheet = lazyWithRetry(
+  () => import("@/components/steps/StepSheet").then((m) => ({ default: m.StepSheet })),
+  "StepSheet",
+);
 
 const STEP_COMPONENTS: Record<StepId, React.LazyExoticComponent<React.ComponentType>> = {
   class: StepClass,
