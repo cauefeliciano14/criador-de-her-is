@@ -3,6 +3,8 @@ import { useBuilderStore } from "@/state/builderStore";
 import { useCharacterStore, mergeUnique } from "@/state/characterStore";
 import { getCanonicalRaceChoiceKeyFromSources, getChoicesRequirements, type ChoiceOption } from "@/utils/choices";
 import { classes } from "@/data/classes";
+import { backgrounds } from "@/data/backgrounds";
+import { races } from "@/data/races";
 import { spells as allSpellsData } from "@/data/spells";
 import { spellsByClassId } from "@/data/indexes";
 import { Badge } from "@/components/ui/badge";
@@ -117,8 +119,6 @@ export function StepChoices() {
   ]);
 
   // ── Expertise ──
-  const { races } = require("@/data/races");
-  const { backgrounds } = require("@/data/backgrounds");
   const race = useMemo(() => races.find((r: any) => r.id === raceId), [raceId]);
   const subrace = useMemo(() => race?.subraces?.find((sr: any) => sr.id === subraceId), [race, subraceId]);
   const bg = useMemo(() => backgrounds.find((b: any) => b.id === backgroundId), [backgroundId]);
