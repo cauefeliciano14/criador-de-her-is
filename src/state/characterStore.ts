@@ -102,6 +102,7 @@ export interface CharacterState {
   name: string;
   level: number;
   race: string | null;
+  raceLineage: string | null;
   subrace: string | null;
   class: string | null;
   subclass: string | null;
@@ -135,6 +136,8 @@ export interface CharacterState {
     spellSaveDC: number;
     spellAttackBonus: number;
   };
+  selectedCantrips: string[];
+  selectedSpells: string[];
   equipment: string[];
   inventory: InventoryEntry[];
   equipped: EquippedState;
@@ -155,7 +158,7 @@ export interface CharacterState {
 const DEFAULT_CHARACTER: CharacterState = {
   lastSavedAt: null,
   persistError: null,
-  name: "", level: 1, race: null, subrace: null, class: null, subclass: null, background: null,
+  name: "", level: 1, race: null, raceLineage: null, subrace: null, class: null, subclass: null, background: null,
   abilityGeneration: { ...DEFAULT_ABILITY_GEN },
   abilityScores: { ...DEFAULT_SCORES },
   racialBonuses: { ...DEFAULT_RACIAL },
@@ -173,6 +176,8 @@ const DEFAULT_CHARACTER: CharacterState = {
   armorClass: 10, speed: 9,
   features: [],
   spells: { cantrips: [], prepared: [], slots: [], spellcastingAbility: null, spellSaveDC: 0, spellAttackBonus: 0 },
+  selectedCantrips: [],
+  selectedSpells: [],
   equipment: [], inventory: [],
   equipped: { armor: null, shield: null, weapons: [] },
   gold: { gp: 0 }, attacks: [],
@@ -269,6 +274,9 @@ function sanitizeChoiceSelections(char: CharacterState): CharacterState {
     ...char,
     choiceSelections: nextSelections,
     classSkillChoices: nextSelections.classSkills,
+    raceLineage: nextSelections.raceChoice,
+    selectedCantrips: nextSelections.cantrips,
+    selectedSpells: nextSelections.spells,
     spells: { ...char.spells, cantrips: nextSelections.cantrips, prepared: nextSelections.spells },
   };
 }
@@ -281,6 +289,10 @@ interface CharacterActions {
   recalc: () => void;
   resetCharacter: () => void;
   resetAbilities: () => void;
+  selectRace: (raceId: string | null) => void;
+  selectRaceLineage: (lineageId: string | null) => void;
+  toggleCantrip: (spellId: string) => void;
+  toggleSpell: (spellId: string) => void;
 }
 
 function markSavedMeta(): Pick<CharacterState, "lastSavedAt" | "persistError"> {
@@ -323,12 +335,68 @@ export const useCharacterStore = create<CharacterState & CharacterActions>()(
           ...markSavedMeta(),
         } as Partial<CharacterState & CharacterActions>);
       },
+      selectRace: (raceId) => {
+        const current = get();
+        const shouldClearLineage = raceId !== "elfo";
+        const nextRaceChoices = shouldClearLineage
+          ? Object.fromEntries(Object.entries(current.raceChoices).filter(([k]) => k !== "elvenLineage"))
+          : current.raceChoices;
+        const updated = sanitizeChoiceSelections({
+          ...current,
+          race: raceId,
+          raceLineage: shouldClearLineage ? null : current.raceLineage,
+          raceChoices: nextRaceChoices,
+        } as CharacterState);
+        const derived = instrumentedRecalc(updated);
+        set({ ...updated, ...derived, ...markSavedMeta() } as Partial<CharacterState & CharacterActions>);
+      },
+      selectRaceLineage: (lineageId) => {
+        const current = get();
+        const nextRaceChoices = lineageId
+          ? { ...current.raceChoices, elvenLineage: lineageId }
+          : Object.fromEntries(Object.entries(current.raceChoices).filter(([k]) => k !== "elvenLineage"));
+        const updated = sanitizeChoiceSelections({
+          ...current,
+          raceLineage: lineageId,
+          raceChoices: nextRaceChoices,
+        } as CharacterState);
+        const derived = instrumentedRecalc(updated);
+        set({ ...updated, ...derived, ...markSavedMeta() } as Partial<CharacterState & CharacterActions>);
+      },
+      toggleCantrip: (spellId) => {
+        const current = get();
+        const selected = new Set(current.spells.cantrips);
+        if (selected.has(spellId)) selected.delete(spellId);
+        else selected.add(spellId);
+        const next = [...selected];
+        const updated = sanitizeChoiceSelections({
+          ...current,
+          selectedCantrips: next,
+          spells: { ...current.spells, cantrips: next },
+        } as CharacterState);
+        const derived = instrumentedRecalc(updated);
+        set({ ...updated, ...derived, ...markSavedMeta() } as Partial<CharacterState & CharacterActions>);
+      },
+      toggleSpell: (spellId) => {
+        const current = get();
+        const selected = new Set(current.spells.prepared);
+        if (selected.has(spellId)) selected.delete(spellId);
+        else selected.add(spellId);
+        const next = [...selected];
+        const updated = sanitizeChoiceSelections({
+          ...current,
+          selectedSpells: next,
+          spells: { ...current.spells, prepared: next },
+        } as CharacterState);
+        const derived = instrumentedRecalc(updated);
+        set({ ...updated, ...derived, ...markSavedMeta() } as Partial<CharacterState & CharacterActions>);
+      },
     }),
     {
       name: "dnd-character-2024",
-      version: 3,
+      version: 4,
       migrate: (persistedState: any, version) => {
-        if (!persistedState || version >= 3) return persistedState;
+        if (!persistedState || version >= 4) return persistedState;
         try {
           const legacy = persistedState as CharacterState;
           const old = legacy.choiceSelections as any;
@@ -353,6 +421,9 @@ export const useCharacterStore = create<CharacterState & CharacterActions>()(
             legacyRaceChoices[legacyRaceState.raceChoice.kind] = legacyRaceState.raceChoice.optionId;
           }
           legacy.raceChoices = legacyRaceChoices;
+          legacy.raceLineage = legacy.choiceSelections.raceChoice;
+          legacy.selectedCantrips = legacy.choiceSelections.cantrips;
+          legacy.selectedSpells = legacy.choiceSelections.spells;
           return legacy;
         } catch {
           return { ...DEFAULT_CHARACTER };

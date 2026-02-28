@@ -29,6 +29,7 @@ export function SummaryPanel() {
   const level = useCharacterStore((s) => s.level);
   const raceId = useCharacterStore((s) => s.race);
   const subraceId = useCharacterStore((s) => s.subrace);
+  const raceLineage = useCharacterStore((s) => s.raceLineage);
   const classId = useCharacterStore((s) => s.class);
   const backgroundId = useCharacterStore((s) => s.background);
 
@@ -104,7 +105,7 @@ export function SummaryPanel() {
           Edição disponível no cabeçalho superior para manter o foco e a navegação por etapas consistentes.
         </p>
         <div className="flex flex-wrap gap-1 mt-1.5 items-center">
-          {race && <MiniTag>{race.name}{subrace ? ` (${subrace.name})` : ""}</MiniTag>}
+          {race && <MiniTag>{race.name}{subrace ? ` (${subrace.name})` : ""}{raceLineage && race.id === "elfo" ? ` • ${race.raceChoice?.options.find((o) => o.id === raceLineage)?.name ?? raceLineage}` : ""}</MiniTag>}
           {cls && <MiniTag>{cls.name} {level}</MiniTag>}
           {bg && <MiniTag>{bg.name}</MiniTag>}
           {!race && !cls && <span className="text-[11px] text-muted-foreground italic">Nenhuma escolha feita</span>}

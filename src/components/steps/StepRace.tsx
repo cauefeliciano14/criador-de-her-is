@@ -20,6 +20,8 @@ export function StepRace() {
   const raceAbilityChoices = useCharacterStore((s) => s.raceAbilityChoices);
   const char = useCharacterStore();
   const patchCharacter = useCharacterStore((s) => s.patchCharacter);
+  const selectRace = useCharacterStore((s) => s.selectRace);
+  const selectRaceLineage = useCharacterStore((s) => s.selectRaceLineage);
   const completeStep = useBuilderStore((s) => s.completeStep);
   const uncompleteStep = useBuilderStore((s) => s.uncompleteStep);
   const setMissing = useBuilderStore((s) => s.setMissing);
@@ -103,11 +105,12 @@ export function StepRace() {
 
     const newBonuses = computeRacialBonuses(race, undefined, {});
 
+    selectRace(id);
     patchCharacter({
-      race: id,
       subrace: null,
       raceAbilityChoices: {},
       raceChoices: {},
+      raceLineage: null,
       speed: race.speed,
       racialBonuses: newBonuses,
       features: newFeatures,
@@ -581,7 +584,10 @@ export function StepRace() {
                         <button
                           key={option.id}
                           disabled={isPlanned}
-                          onClick={() => patchCharacter({ raceChoices: { ...char.raceChoices, [raceChoiceKey]: option.id } })}
+                          onClick={() => {
+                            patchCharacter({ raceChoices: { ...char.raceChoices, [raceChoiceKey]: option.id } });
+                            if (selectedRace.id === "elfo") selectRaceLineage(option.id);
+                          }}
                           className={`w-full rounded-lg border p-4 text-left transition-all ${
                             isSelected
                               ? "border-primary bg-primary/10 ring-1 ring-primary/30"

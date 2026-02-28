@@ -20,7 +20,6 @@ export function StepClass() {
 
   const classId = useCharacterStore((s) => s.class);
   const subclassId = useCharacterStore((s) => s.subclass);
-  const classSkillChoices = useCharacterStore((s) => s.classSkillChoices);
   const classEquipmentChoice = useCharacterStore((s) => s.classEquipmentChoice);
   const classFeatureChoices = useCharacterStore((s) => s.classFeatureChoices);
   const level = useCharacterStore((s) => s.level);
@@ -211,19 +210,6 @@ export function StepClass() {
     });
   };
 
-  // --- Toggle skill ---
-  const handleToggleSkill = (skill: string) => {
-    if (!selectedClass) return;
-    const max = selectedClass.skillChoices.choose;
-    let next: string[];
-    if (classSkillChoices.includes(skill)) {
-      next = classSkillChoices.filter((s) => s !== skill);
-    } else {
-      if (classSkillChoices.length >= max) return;
-      next = [...classSkillChoices, skill];
-    }
-    patchCharacter({ classSkillChoices: next });
-  };
 
   // --- Select equipment ---
   const handleEquipment = (choiceId: string) => {
@@ -393,13 +379,11 @@ export function StepClass() {
         {selectedClass ? (
           <ClassDetails
             cls={selectedClass}
-            classSkillChoices={classSkillChoices}
             classEquipmentChoice={classEquipmentChoice}
             classFeatureChoices={classFeatureChoices}
             subclassId={subclassId}
             level={level}
             expandedFeatures={expandedFeatures}
-            onToggleSkill={handleToggleSkill}
             instrumentSelections={choiceSelections.instruments ?? []}
             instrumentOptions={requirements.buckets.instruments.options}
             instrumentPending={requirements.buckets.instruments.pendingCount}
@@ -478,13 +462,11 @@ export function StepClass() {
 
 interface ClassDetailsProps {
   cls: ClassData;
-  classSkillChoices: string[];
   classEquipmentChoice: string | null;
   classFeatureChoices: Record<string, string | string[]>;
   subclassId: string | null;
   level: number;
   expandedFeatures: Record<string, boolean>;
-  onToggleSkill: (skill: string) => void;
   instrumentSelections: string[];
   instrumentOptions: { id: string; name: string }[];
   instrumentPending: number;
@@ -496,13 +478,11 @@ interface ClassDetailsProps {
 
 function ClassDetails({
   cls,
-  classSkillChoices,
   classEquipmentChoice,
   classFeatureChoices,
   subclassId,
   level,
   expandedFeatures,
-  onToggleSkill,
   instrumentSelections,
   instrumentOptions,
   instrumentPending,
@@ -579,54 +559,12 @@ function ClassDetails({
           </div>
         </Section>
 
-        {/* Skill choices — REQUIRED */}
-        <Section
-          title="Perícias"
-          badge={
-            classSkillChoices.length < cls.skillChoices.choose ? (
-              <RequiredBadge label={`Escolha ${cls.skillChoices.choose}`} />
-            ) : null
-          }
-        >
-          <p className="text-sm text-muted-foreground mb-3">
-            Escolha {cls.skillChoices.choose} entre as opções abaixo:
+        <Section title="Perícias">
+          <p className="text-sm text-muted-foreground mb-2">
+            Escolha {cls.skillChoices.choose}: {cls.skillChoices.from.slice().sort((a, b) => a.localeCompare(b, "pt-BR")).join(", ")}.
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {cls.skillChoices.from
-              .sort((a, b) => a.localeCompare(b, "pt-BR"))
-              .map((skill) => {
-                const selected = classSkillChoices.includes(skill);
-                const disabled =
-                  !selected && classSkillChoices.length >= cls.skillChoices.choose;
-                return (
-                  <button
-                    key={skill}
-                    onClick={() => onToggleSkill(skill)}
-                    disabled={disabled}
-                    className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm text-left transition-colors ${
-                      selected
-                        ? "border-primary bg-primary/10 font-medium"
-                        : disabled
-                        ? "opacity-40 cursor-not-allowed"
-                        : "hover:border-muted-foreground/40 hover:bg-secondary"
-                    }`}
-                  >
-                    <div
-                      className={`h-4 w-4 shrink-0 rounded-sm border flex items-center justify-center ${
-                        selected ? "bg-primary border-primary" : "border-muted-foreground/40"
-                      }`}
-                    >
-                      {selected && (
-                        <CheckCircle2 className="h-3 w-3 text-primary-foreground" />
-                      )}
-                    </div>
-                    {skill}
-                  </button>
-                );
-              })}
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            {classSkillChoices.length}/{cls.skillChoices.choose} selecionadas
+          <p className="text-xs text-muted-foreground">
+            A seleção final de perícias é feita na etapa <span className="font-medium">5. Equipamentos</span>.
           </p>
         </Section>
 
