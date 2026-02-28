@@ -3,7 +3,6 @@ import { useBuilderStore } from "@/state/builderStore";
 import { useCharacterStore, mergeUnique } from "@/state/characterStore";
 import { getCanonicalRaceChoiceKeyFromSources, getChoicesRequirements, type ChoiceOption } from "@/utils/choices";
 import { classes } from "@/data/classes";
-import { isSpellcasterClass } from "@/utils/spellcasting";
 import { backgrounds } from "@/data/backgrounds";
 import { races } from "@/data/races";
 import { spells as allSpellsData } from "@/data/spells";
@@ -22,6 +21,15 @@ import {
   ABILITY_LABELS,
 } from "@/utils/calculations";
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import {
+  filterSpellsByClass,
+  formatSpellClassesForDisplay,
+  getSelectedClassId,
+  getSpellLimitsAtLevel1,
+  isSpellcastingClass,
+  spellMatchesClass,
+} from "@/utils/spellsByClass";
 
 // ── Expertise configuration per class ──
 interface ExpertiseConfig {
@@ -83,6 +91,7 @@ const LEVEL_LABELS: Record<number, string> = {
 };
 
 export function StepChoices() {
+  const { toast } = useToast();
   const classId = useCharacterStore((s) => s.class);
   const level = useCharacterStore((s) => s.level);
   const abilityScores = useCharacterStore((s) => s.abilityScores);
@@ -117,7 +126,8 @@ export function StepChoices() {
     classSkillChoices, spellsState.cantrips, spellsState.prepared,
     raceChoices, classFeatureChoices,
   ]);
-  const isSpellcaster = isSpellcasterClass(classId) || requirements.buckets.cantrips.requiredCount > 0 || requirements.buckets.spells.requiredCount > 0;
+  const selectedClassId = getSelectedClassId({ class: classId });
+  const isSpellcaster = isSpellcastingClass(selectedClassId) || requirements.buckets.cantrips.requiredCount > 0 || requirements.buckets.spells.requiredCount > 0;
 
   // ── Expertise ──
   const race = useMemo(() => races.find((r: any) => r.id === raceId), [raceId]);
@@ -186,7 +196,10 @@ export function StepChoices() {
   const spellAttackBonus = sc ? profBonus + abilityMod : 0;
 
   const cantripsLimit = useMemo(() => {
-    if (!sc) return requirements.buckets.cantrips.requiredCount;
+    if (!sc) {
+      const fallback = getSpellLimitsAtLevel1(selectedClassId);
+      return fallback.cantrips || requirements.buckets.cantrips.requiredCount;
+    }
     let limit = 0;
     for (const [l, c] of Object.entries(sc.cantripsKnownAtLevel).map(([l, c]) => [Number(l), c] as [number, number]).sort((a, b) => a[0] - b[0])) {
       if (level >= l) limit = c;
@@ -194,7 +207,7 @@ export function StepChoices() {
     if (classId === "clerigo" && classFeatureChoices["clerigo:ordemDivina"] === "taumaturgo") limit += 1;
     if (classId === "druida" && classFeatureChoices["druida:ordemPrimal"] === "xama") limit += 1;
     return limit;
-  }, [sc, level, classId, classFeatureChoices, requirements.buckets.cantrips.requiredCount]);
+  }, [sc, level, classId, classFeatureChoices, requirements.buckets.cantrips.requiredCount, selectedClassId]);
 
   const availableSlots = useMemo(() => {
     if (!sc) return {} as Record<number, number>;
@@ -207,7 +220,10 @@ export function StepChoices() {
   }, [availableSlots]);
 
   const preparedLimit = useMemo(() => {
-    if (!sc) return requirements.buckets.spells.requiredCount;
+    if (!sc) {
+      const fallback = getSpellLimitsAtLevel1(selectedClassId);
+      return fallback.prepared || requirements.buckets.spells.requiredCount;
+    }
     if (sc.type === "prepared") return Math.max(1, abilityMod + level);
     const knownData = (sc as any).spellsKnownAtLevel;
     if (knownData) {
@@ -218,21 +234,27 @@ export function StepChoices() {
       return limit;
     }
     return Math.max(1, abilityMod + level);
-  }, [sc, abilityMod, level, requirements.buckets.spells.requiredCount]);
+  }, [sc, abilityMod, level, requirements.buckets.spells.requiredCount, selectedClassId]);
+
+  const spellsFilteredByClass = useMemo(() => {
+    if (!selectedClassId) return [];
+    return filterSpellsByClass(allSpellsData, selectedClassId)
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  }, [selectedClassId]);
 
   const classSpells = useMemo(() => {
     const allowedIds = new Set([
       ...requirements.buckets.cantrips.options.map((o) => o.id),
       ...requirements.buckets.spells.options.map((o) => o.id),
     ]);
-    return allSpellsData.filter((spell) => allowedIds.has(spell.id)).slice().sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-  }, [requirements.buckets.cantrips.options, requirements.buckets.spells.options]);
+    return spellsFilteredByClass.filter((spell) => allowedIds.has(spell.id));
+  }, [requirements.buckets.cantrips.options, requirements.buckets.spells.options, spellsFilteredByClass]);
 
   // ── Spell filters ──
   const [spellSearch, setSpellSearch] = useState("");
   const [filterLevel, setFilterLevel] = useState<number | null>(null);
   const [filterSchool, setFilterSchool] = useState<string>("all");
-  const [filterClass, setFilterClass] = useState<string>("all");
   const [detailSpellId, setDetailSpellId] = useState<string | null>(null);
 
   const filteredSpells = useMemo(() => {
@@ -241,10 +263,9 @@ export function StepChoices() {
       if (spellSearch && !s.name.toLowerCase().includes(spellSearch.toLowerCase())) return false;
       if (filterLevel !== null && s.level !== filterLevel) return false;
       if (filterSchool !== "all" && s.school !== filterSchool) return false;
-      if (filterClass !== "all" && !s.classes.includes(filterClass)) return false;
       return true;
     });
-  }, [classSpells, spellSearch, filterLevel, maxSpellLevel, filterSchool, filterClass]);
+  }, [classSpells, spellSearch, filterLevel, maxSpellLevel, filterSchool]);
 
   const availableLevels = useMemo(() => {
     const levels = new Set(classSpells.map((s) => s.level));
@@ -256,10 +277,19 @@ export function StepChoices() {
   const spellTypeLabel = sc?.type === "known" || sc?.type === "pact" ? "Conhecidas" : "Preparadas";
 
   const availableSchools = useMemo(() => [...new Set(classSpells.map((s) => s.school))].sort((a, b) => a.localeCompare(b, "pt-BR")), [classSpells]);
-  const availableClasses = useMemo(() => [...new Set(classSpells.flatMap((s) => s.classes))].sort((a, b) => a.localeCompare(b, "pt-BR")), [classSpells]);
   const detailSpell = useMemo(() => classSpells.find((s) => s.id === detailSpellId) ?? null, [classSpells, detailSpellId]);
 
   const toggleSpell = useCallback((spellId: string, spellLevel: number) => {
+    const spell = allSpellsData.find((entry) => entry.id === spellId);
+    if (!spell || !selectedClassId || !spellMatchesClass(spell, selectedClassId)) {
+      toast({
+        title: "Magia incompatível",
+        description: "Esta magia não pertence à lista da classe selecionada.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (spellLevel === 0) {
       const current = [...selectedCantrips];
       const idx = current.indexOf(spellId);
@@ -277,7 +307,7 @@ export function StepChoices() {
         spells: { ...spellsState, prepared: current, cantrips: selectedCantrips, spellcastingAbility: abilityKey, spellSaveDC, spellAttackBonus, slots: Object.values(availableSlots) },
       });
     }
-  }, [selectedCantrips, selectedPrepared, cantripsLimit, preparedLimit, spellsState, abilityKey, spellSaveDC, spellAttackBonus, availableSlots, patchCharacter]);
+  }, [selectedCantrips, selectedPrepared, cantripsLimit, preparedLimit, spellsState, abilityKey, spellSaveDC, spellAttackBonus, availableSlots, patchCharacter, selectedClassId, toast]);
 
   // ── Bucket toggle (non-spell choices) ──
   const toggle = (bucket: "classSkills" | "languages" | "tools" | "instruments" | "raceChoice" | "classFeats", id: string) => {
@@ -450,7 +480,19 @@ export function StepChoices() {
       )}
 
       {/* ── Spells section ── */}
-      {isSpellcaster && (
+      {!selectedClassId && (
+        <Card className="p-4">
+          <p className="text-sm text-muted-foreground">Selecione uma classe para ver magias.</p>
+        </Card>
+      )}
+
+      {selectedClassId && !isSpellcastingClass(selectedClassId) && (
+        <Card className="p-4">
+          <p className="text-sm text-muted-foreground">Esta classe não conjura magias.</p>
+        </Card>
+      )}
+
+      {selectedClassId && isSpellcaster && (
         <Card className="p-4 space-y-4">
           <div className="flex items-center gap-2">
             <Wand2 className="h-5 w-5 text-primary" />
@@ -540,20 +582,9 @@ export function StepChoices() {
                   {school}
                 </button>
               ))}
-              {availableClasses.map((className) => (
+              {(filterLevel !== null || spellSearch || filterSchool !== "all") && (
                 <button
-                  key={className}
-                  onClick={() => setFilterClass(filterClass === className ? "all" : className)}
-                  className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
-                    filterClass === className ? "bg-primary text-primary-foreground border-primary" : "bg-secondary text-secondary-foreground border-border hover:bg-secondary/80"
-                  }`}
-                >
-                  {className}
-                </button>
-              ))}
-              {(filterLevel !== null || spellSearch || filterSchool !== "all" || filterClass !== "all") && (
-                <button
-                  onClick={() => { setFilterLevel(null); setSpellSearch(""); setFilterSchool("all"); setFilterClass("all"); }}
+                  onClick={() => { setFilterLevel(null); setSpellSearch(""); setFilterSchool("all"); }}
                   className="rounded-full px-3 py-1 text-xs font-medium border border-destructive/30 text-destructive hover:bg-destructive/10 flex items-center gap-1"
                 >
                   <X className="h-3 w-3" /> Limpar
@@ -607,7 +638,7 @@ export function StepChoices() {
             <div className="space-y-2 text-sm">
               <p><span className="font-medium">Círculo:</span> {detailSpell.level === 0 ? "Truque" : `${detailSpell.level}º`}</p>
               <p><span className="font-medium">Escola:</span> {detailSpell.school}</p>
-              <p><span className="font-medium">Classes:</span> {detailSpell.classes.join(", ")}</p>
+              <p><span className="font-medium">Classes:</span> {formatSpellClassesForDisplay(detailSpell).join(", ")}</p>
               <p className="text-muted-foreground">{detailSpell.description}</p>
             </div>
           )}
