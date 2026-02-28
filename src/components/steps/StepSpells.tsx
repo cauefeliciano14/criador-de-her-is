@@ -49,6 +49,8 @@ export function StepSpells() {
   const level = useCharacterStore((s) => s.level);
   const classFeatureChoices = useCharacterStore((s) => s.classFeatureChoices ?? {});
   const spellsState = useCharacterStore((s) => s.spells);
+  const toggleCantrip = useCharacterStore((s) => s.toggleCantrip);
+  const togglePreparedSpell = useCharacterStore((s) => s.toggleSpell);
   const patchCharacter = useCharacterStore((s) => s.patchCharacter);
   const cls = classes.find((c) => c.id === classId);
   const sc = cls?.spellcasting ?? null;
@@ -176,46 +178,18 @@ export function StepSpells() {
   const selectedPrepared = spellsState.prepared;
 
   const toggleSpell = (spell: SpellData) => {
+    const selected = isSelected(spell.id, spell.level);
+    const canAddCantrip = selected || selectedCantrips.length < cantripsLimit;
+    const canAddPrepared = selected || selectedPrepared.length < preparedLimit;
+
     if (spell.level === 0) {
-      // Cantrip
-      const current = [...selectedCantrips];
-      const idx = current.indexOf(spell.id);
-      if (idx >= 0) {
-        current.splice(idx, 1);
-      } else if (current.length < cantripsLimit) {
-        current.push(spell.id);
-      }
-      patchCharacter({
-        spells: {
-          ...spellsState,
-          cantrips: current,
-          spellcastingAbility: abilityKey,
-          spellSaveDC,
-          spellAttackBonus,
-        },
-      });
-    } else {
-      // Leveled spell
-      const current = [...selectedPrepared];
-      const idx = current.indexOf(spell.id);
-      if (idx >= 0) {
-        current.splice(idx, 1);
-      } else if (current.length < preparedLimit) {
-        current.push(spell.id);
-      }
-      // Store in `prepared` for all caster types (prepared/known/pact)
-      patchCharacter({
-        spells: {
-          ...spellsState,
-          cantrips: selectedCantrips,
-          prepared: current,
-          spellcastingAbility: abilityKey,
-          spellSaveDC,
-          spellAttackBonus,
-          slots: Object.values(availableSlots),
-        },
-      });
+      if (!canAddCantrip) return;
+      toggleCantrip(spell.id);
+      return;
     }
+
+    if (!canAddPrepared) return;
+    togglePreparedSpell(spell.id);
   };
 
   const isSelected = (spellId: string, level: number) => {
@@ -235,7 +209,7 @@ export function StepSpells() {
         slots: Object.values(availableSlots),
       },
     });
-  }, [classId, abilityKey]);
+  }, [classId, abilityKey, spellSaveDC, spellAttackBonus, availableSlots, patchCharacter, spellsState]);
 
   // ── Validation ──
   useEffect(() => {
@@ -447,6 +421,8 @@ export function StepSpells() {
                 {/* Toggle button */}
                 <button
                   disabled={disabled}
+                  title={disabled ? "Limite atingido" : selected ? "Remover" : "Adicionar"}
+                  aria-label={selected ? "Remover magia" : "Adicionar magia"}
                   className={`shrink-0 rounded-full h-8 w-8 flex items-center justify-center border transition-colors ${
                     selected
                       ? "bg-primary text-primary-foreground border-primary"
