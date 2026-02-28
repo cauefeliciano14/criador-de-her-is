@@ -104,6 +104,18 @@ Checklist:
 - Em caso de erro, leia o toast de validação para identificar campos faltantes/incompatíveis.
 - Se o JSON for antigo, exporte novamente um personagem atual para comparar o formato esperado.
 
+
+## Configuração recomendada no Lovable (Preview)
+
+Quando o build falhar no `npm ci` com `E403/403 Forbidden` em pacotes de teste (ex.: `@testing-library/dom`), use pipeline de preview com dependências mínimas:
+
+- **Install command:** `npm install --omit=dev`
+- **Build command:** `npm run build`
+- **Registry:** `https://registry.npmjs.org/`
+- **Sem proxy corporativo** para npm (`proxy`/`https-proxy` desativados)
+
+Observação: dependências de teste/lint ficam para pipeline separado de CI, enquanto o preview instala apenas o necessário para gerar o bundle de produção.
+
 ## Stack
 
 - Vite
