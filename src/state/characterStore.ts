@@ -6,6 +6,7 @@ import type { InventoryEntry, EquippedState, AttackEntry } from "@/data/items";
 import { perfTime } from "@/utils/perf";
 import { getChoicesRequirements } from "@/utils/choices";
 import { toast } from "@/hooks/use-toast";
+import { commonLanguages } from "@/data/languagesCommon";
 
 // ── Types ──
 
@@ -270,6 +271,14 @@ function sanitizeChoiceSelections(char: CharacterState): CharacterState {
     classFeats: buckets.classFeats.selectedIds,
   };
 
+  const commonLanguageNamesById = new Map(commonLanguages.map((lang) => [lang.id, lang.name] as const));
+  const selectedLanguageNames = nextSelections.languages
+    .map((id) => commonLanguageNamesById.get(id))
+    .filter(Boolean) as string[];
+  const fixedKnownLanguages = (char.proficiencies.languages ?? []).filter((language) => !/idioma.+escolha/i.test(language));
+  const ensuredCommon = ["Comum", ...fixedKnownLanguages];
+  const nextKnownLanguages = mergeUnique(ensuredCommon, selectedLanguageNames);
+
   return {
     ...char,
     choiceSelections: nextSelections,
@@ -277,6 +286,7 @@ function sanitizeChoiceSelections(char: CharacterState): CharacterState {
     raceLineage: nextSelections.raceChoice,
     selectedCantrips: nextSelections.cantrips,
     selectedSpells: nextSelections.spells,
+    proficiencies: { ...char.proficiencies, languages: nextKnownLanguages },
     spells: { ...char.spells, cantrips: nextSelections.cantrips, prepared: nextSelections.spells },
   };
 }

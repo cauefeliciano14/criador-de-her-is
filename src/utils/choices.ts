@@ -2,7 +2,7 @@ import { classes } from "@/data/classes";
 import { backgrounds } from "@/data/backgrounds";
 import { races } from "@/data/races";
 import type { RaceChoiceOption } from "@/data/races";
-import { languages as allLanguages } from "@/data/languages";
+import { commonLanguages } from "@/data/languagesCommon";
 import { instruments } from "@/data/instruments";
 import { items } from "@/data/items";
 import { skills } from "@/data/skills";
@@ -226,12 +226,15 @@ export function getChoicesRequirements(character: CharacterState, datasets: Choi
 
   const raceLangReq = reqCount(currentRace?.languages, (v) => LANGUAGE_RX.test(v));
   const bgLangReq = reqCount(currentBackground?.languages, (v) => LANGUAGE_RX.test(v));
-  const languageRequiredCount = raceLangReq + bgLangReq;
-  const fixedLanguageIds = new Set((currentRace?.languages ?? []).filter((l) => !PLACEHOLDER_RX.test(l)).map((name) => allLanguages.find((lang) => normalize(lang.name) === normalize(name))?.id).filter(Boolean) as string[]);
-  const languageOptions = uniq(allLanguages.filter((l) => !fixedLanguageIds.has(l.id)).map((l) => ({ id: l.id, name: l.name })));
+  const languageRequiredCount = 2 + raceLangReq + bgLangReq;
+  const languageOptions = uniq(
+    commonLanguages
+      .filter((l) => l.id !== "comum")
+      .map((l) => ({ id: l.id, name: l.name }))
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+  );
 
-  const instrumentRequiredCount = (character.class === "bardo" ? 3 : 0)
-    + reqCount(currentBackground?.tools, (v) => INSTRUMENT_RX.test(v))
+  const instrumentRequiredCount = reqCount(currentBackground?.tools, (v) => INSTRUMENT_RX.test(v))
     + reqCount(currentClass?.proficiencies.tools, (v) => INSTRUMENT_RX.test(v));
 
   const backgroundToolRequirements = buildToolRequirements(currentBackground?.tools);
@@ -260,6 +263,7 @@ export function getChoicesRequirements(character: CharacterState, datasets: Choi
   const buckets = {
     classSkills: makeBucket(classSkillRequired, selections.classSkills ?? selections.skills ?? character.classSkillChoices ?? [], classSkillOptions, currentClass ? [`class:${currentClass.id}`] : []),
     languages: makeBucket(languageRequiredCount, selections.languages ?? [], languageOptions, [
+      "base:common:2",
       ...(raceLangReq > 0 && currentRace ? [`race:${currentRace.id}:${raceLangReq}`] : []),
       ...(bgLangReq > 0 && currentBackground ? [`background:${currentBackground.id}:${bgLangReq}`] : []),
     ]),
@@ -267,7 +271,11 @@ export function getChoicesRequirements(character: CharacterState, datasets: Choi
       ...backgroundToolRequirements.map((req) => `background:${currentBackground?.id}:${req.subtype}:${req.count}`),
       ...classToolRequirements.map((req) => `class:${currentClass?.id}:${req.subtype}:${req.count}`),
     ]),
-    instruments: makeBucket(instrumentRequiredCount, selections.instruments ?? [], uniq(instruments.map((i) => ({ id: i.id, name: i.name }))), [
+    instruments: makeBucket(
+      instrumentRequiredCount,
+      selections.instruments ?? [],
+      uniq(instruments.map((i) => ({ id: i.id, name: i.name }))).sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+      [
       ...(character.class === "bardo" ? ["class:bardo:3"] : []),
       ...(reqCount(currentBackground?.tools, (v) => INSTRUMENT_RX.test(v)) > 0 && currentBackground ? [`background:${currentBackground.id}:${reqCount(currentBackground?.tools, (v) => INSTRUMENT_RX.test(v))}`] : []),
     ]),

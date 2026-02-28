@@ -12,7 +12,7 @@ describe("choice engine", () => {
       abilityGeneration: { ...makeCharacter().abilityGeneration, method: "standard", confirmed: true },
       classEquipmentChoice: "A", backgroundEquipmentChoice: null,
       classSkillChoices: ["atletismo", "intuicao"],
-      choiceSelections: { classSkills: ["atletismo", "intuicao"], languages: [], tools: [], instruments: [], cantrips: [], spells: [], raceChoice: null, classFeats: [] },
+      choiceSelections: { classSkills: ["atletismo", "intuicao"], languages: ["anao", "elfico"], tools: [], instruments: [], cantrips: [], spells: [], raceChoice: null, classFeats: [] },
     });
     const req = getChoicesRequirements(char);
     expect(req.needsStep).toBe(false);
@@ -82,6 +82,31 @@ describe("choice engine", () => {
     const req = getChoicesRequirements(char);
     expect(req.buckets.raceChoice.pendingCount).toBe(1);
     expect(req.buckets.raceChoice.selectedIds).toEqual([]);
+  });
+
+  it("idiomas base exigem 2 escolhas além de Comum", () => {
+    const char = makeCharacter({
+      class: "guerreiro",
+      race: "humano",
+      background: "soldado",
+      choiceSelections: { classSkills: [], languages: [], tools: [], instruments: [], cantrips: [], spells: [], raceChoice: null, classFeats: [] },
+    });
+
+    const req = getChoicesRequirements(char);
+    expect(req.buckets.languages.requiredCount).toBe(2);
+    expect(req.buckets.languages.options.some((l) => l.name === "Comum")).toBe(false);
+  });
+
+  it("bardo exige exatamente 3 instrumentos", () => {
+    const char = makeCharacter({
+      class: "bardo",
+      race: "humano",
+      background: "soldado",
+      choiceSelections: { classSkills: [], languages: [], tools: [], instruments: [], cantrips: [], spells: [], raceChoice: null, classFeats: [] },
+    });
+
+    const req = getChoicesRequirements(char);
+    expect(req.buckets.instruments.requiredCount).toBe(3);
   });
 
 });
