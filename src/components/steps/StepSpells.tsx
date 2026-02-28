@@ -188,6 +188,8 @@ export function StepSpells() {
   // NOTE: We store leveled spells in `spells.prepared` for ALL caster types (prepared/known/pact)
   // to keep the state shape simple for now (levels 1–2 focus).
   const selectedPrepared = spellsState.prepared;
+  const canAddCantrip = selectedCantrips.length < cantripsLimit;
+  const canAddPrepared = selectedPrepared.length < preparedLimit;
 
   const toggleSpell = (spell: SpellData) => {
     if (!selectedClassId || !spellMatchesClass(spell, selectedClassId)) {
