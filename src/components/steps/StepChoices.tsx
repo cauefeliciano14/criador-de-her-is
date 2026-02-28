@@ -3,6 +3,7 @@ import { useBuilderStore } from "@/state/builderStore";
 import { useCharacterStore, mergeUnique } from "@/state/characterStore";
 import { getCanonicalRaceChoiceKeyFromSources, getChoicesRequirements, type ChoiceOption } from "@/utils/choices";
 import { classes } from "@/data/classes";
+import { isSpellcasterClass } from "@/utils/spellcasting";
 import { backgrounds } from "@/data/backgrounds";
 import { races } from "@/data/races";
 import { spells as allSpellsData } from "@/data/spells";
@@ -116,7 +117,7 @@ export function StepChoices() {
     classSkillChoices, spellsState.cantrips, spellsState.prepared,
     raceChoices, classFeatureChoices,
   ]);
-  const isSpellcaster = cls?.spellcasting != null || requirements.buckets.cantrips.requiredCount > 0 || requirements.buckets.spells.requiredCount > 0;
+  const isSpellcaster = isSpellcasterClass(classId) || requirements.buckets.cantrips.requiredCount > 0 || requirements.buckets.spells.requiredCount > 0;
 
   // ── Expertise ──
   const race = useMemo(() => races.find((r: any) => r.id === raceId), [raceId]);

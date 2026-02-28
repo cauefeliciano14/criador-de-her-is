@@ -15,7 +15,7 @@ export interface SpellData {
   source: { book: string; page: number };
 }
 
-export const spells: SpellData[] = [
+const rawSpells: SpellData[] = [
   // ── Truques (nível 0) ──────────────────────
   {
     id: "arcanismo-prestidigitacao",
@@ -28,7 +28,7 @@ export const spells: SpellData[] = [
     range: "3m",
     components: ["V", "S"],
     duration: "Até 1 hora",
-    classes: ["Mago", "Feiticeiro", "Bruxo", "Bardo", "Artífice"],
+    classes: ["Mago", "Feiticeiro", "Bruxo", "Bardo"],
     description:
       "Este truque é uma menor demonstração mágica que conjuradores novatos usam para praticar. Você cria um dos efeitos sensoriais: faíscas, apagar vela, limpar objeto, aquecer, marca ou ilusão.",
     source: { book: "PHB 2024", page: 0 },
@@ -60,7 +60,7 @@ export const spells: SpellData[] = [
     range: "Toque",
     components: ["V", "M"],
     duration: "1 hora",
-    classes: ["Mago", "Clérigo", "Feiticeiro", "Bardo", "Artífice"],
+    classes: ["Mago", "Clérigo", "Feiticeiro", "Bardo"],
     description:
       "Você toca um objeto que não seja maior que 3 metros em qualquer dimensão. O objeto emite luz plena em um raio de 6m e penumbra por mais 6m.",
     source: { book: "PHB 2024", page: 0 },
@@ -76,7 +76,7 @@ export const spells: SpellData[] = [
     range: "18m",
     components: ["V", "S"],
     duration: "Instantânea",
-    classes: ["Mago", "Feiticeiro", "Artífice"],
+    classes: ["Mago", "Feiticeiro"],
     description:
       "Um raio de energia azulada e fria dispara contra uma criatura ao alcance. Faça um ataque à distância com magia. Em caso de acerto, causa 1d8 de dano de frio e reduz o deslocamento em 3m até o início do seu próximo turno.",
     source: { book: "PHB 2024", page: 0 },
@@ -92,7 +92,7 @@ export const spells: SpellData[] = [
     range: "9m",
     components: ["V", "S"],
     duration: "1 minuto",
-    classes: ["Mago", "Feiticeiro", "Bruxo", "Bardo", "Artífice"],
+    classes: ["Mago", "Feiticeiro", "Bruxo", "Bardo"],
     description:
       "Uma mão espectral e flutuante aparece em um ponto que você escolher ao alcance. Ela pode manipular objetos, abrir portas e carregar até 5kg.",
     source: { book: "PHB 2024", page: 0 },
@@ -124,7 +124,7 @@ export const spells: SpellData[] = [
     range: "36m",
     components: ["V", "S"],
     duration: "Instantânea",
-    classes: ["Mago", "Feiticeiro", "Artífice"],
+    classes: ["Mago", "Feiticeiro"],
     description:
       "Você arremessa uma pequena bola de fogo contra uma criatura ou objeto ao alcance. Faça ataque à distância com magia. Em caso de acerto, causa 1d10 de dano de fogo. O fogo incendeia objetos não carregados ou vestidos.",
     source: { book: "PHB 2024", page: 0 },
@@ -140,7 +140,7 @@ export const spells: SpellData[] = [
     range: "36m",
     components: ["V", "S", "M"],
     duration: "1 rodada",
-    classes: ["Mago", "Bardo", "Artífice"],
+    classes: ["Mago", "Bardo"],
     description:
       "Você aponta para uma criatura ao alcance e sussurra uma mensagem. O alvo (e somente ele) ouve a mensagem e pode responder em um sussurro.",
     source: { book: "PHB 2024", page: 0 },
@@ -152,7 +152,7 @@ export const spells: SpellData[] = [
     name: "Orientação",
     level: 0, school: "Adivinhação", ritual: false, concentration: true,
     castingTime: "1 ação", range: "Toque", components: ["V", "S"], duration: "1 minuto",
-    classes: ["Clérigo", "Druida", "Artífice"],
+    classes: ["Clérigo", "Druida"],
     description: "Toque uma criatura voluntária. Uma vez antes da magia acabar, o alvo pode rolar 1d4 e somar ao resultado de um teste de habilidade.",
     source: { book: "PHB 2024", page: 0 },
   },
@@ -179,7 +179,7 @@ export const spells: SpellData[] = [
     name: "Resistência",
     level: 0, school: "Abjuração", ritual: false, concentration: true,
     castingTime: "1 ação", range: "Toque", components: ["V", "S", "M"], duration: "1 minuto",
-    classes: ["Clérigo", "Druida", "Artífice"],
+    classes: ["Clérigo", "Druida"],
     description: "Toque uma criatura voluntária. Uma vez antes da magia acabar, o alvo pode rolar 1d4 e somar a um teste de resistência.",
     source: { book: "PHB 2024", page: 0 },
   },
@@ -224,7 +224,7 @@ export const spells: SpellData[] = [
     name: "Chicote de Espinhos",
     level: 0, school: "Transmutação", ritual: false, concentration: false,
     castingTime: "1 ação", range: "9m", components: ["V", "S", "M"], duration: "Instantânea",
-    classes: ["Druida", "Artífice"],
+    classes: ["Druida"],
     description: "Crie um chicote espinhoso que ataca criatura ao alcance. Ataque corpo a corpo com magia. Acerto: 1d6 perfurante e puxe criatura 3m em sua direção se Grande ou menor.",
     source: { book: "PHB 2024", page: 0 },
   },
@@ -269,7 +269,7 @@ export const spells: SpellData[] = [
     name: "Toque Chocante",
     level: 0, school: "Evocação", ritual: false, concentration: false,
     castingTime: "1 ação", range: "Toque", components: ["V", "S"], duration: "Instantânea",
-    classes: ["Mago", "Feiticeiro", "Artífice"],
+    classes: ["Mago", "Feiticeiro"],
     description: "Relâmpagos saltam de sua mão. Ataque corpo a corpo com magia. Acerto: 1d8 elétrico. Se alvo usa armadura de metal, vantagem no ataque.",
     source: { book: "PHB 2024", page: 0 },
   },
@@ -278,7 +278,7 @@ export const spells: SpellData[] = [
     name: "Luzes Dançantes",
     level: 0, school: "Evocação", ritual: false, concentration: true,
     castingTime: "1 ação", range: "36m", components: ["V", "S", "M"], duration: "1 minuto",
-    classes: ["Bardo", "Feiticeiro", "Mago", "Artífice"],
+    classes: ["Bardo", "Feiticeiro", "Mago"],
     description: "Crie até 4 luzes do tamanho de tochas. Cada uma ilumina 3m. Pode movê-las até 18m como ação bônus.",
     source: { book: "PHB 2024", page: 0 },
   },
@@ -287,7 +287,7 @@ export const spells: SpellData[] = [
     name: "Reparar",
     level: 0, school: "Transmutação", ritual: false, concentration: false,
     castingTime: "1 minuto", range: "Toque", components: ["V", "S", "M"], duration: "Instantânea",
-    classes: ["Bardo", "Clérigo", "Druida", "Feiticeiro", "Mago", "Artífice"],
+    classes: ["Bardo", "Clérigo", "Druida", "Feiticeiro", "Mago"],
     description: "Repare uma quebra ou rasgo único em um objeto que esteja tocando (elo partido, chave quebrada etc.).",
     source: { book: "PHB 2024", page: 0 },
   },
@@ -296,7 +296,7 @@ export const spells: SpellData[] = [
     name: "Lâmina Trovejante",
     level: 0, school: "Evocação", ritual: false, concentration: false,
     castingTime: "1 ação", range: "Pessoal (1,5m)", components: ["S", "M"], duration: "1 rodada",
-    classes: ["Feiticeiro", "Bruxo", "Mago", "Artífice"],
+    classes: ["Feiticeiro", "Bruxo", "Mago"],
     description: "Faça ataque corpo a corpo com arma. Acerto: dano normal. Se alvo se mover voluntariamente antes do seu próximo turno, sofre 1d8 trovejante.",
     source: { book: "PHB 2024", page: 0 },
   },
@@ -305,7 +305,7 @@ export const spells: SpellData[] = [
     name: "Lâmina Verdejante",
     level: 0, school: "Evocação", ritual: false, concentration: false,
     castingTime: "1 ação", range: "Pessoal (1,5m)", components: ["S", "M"], duration: "1 rodada",
-    classes: ["Druida", "Bruxo", "Mago", "Artífice"],
+    classes: ["Druida", "Bruxo", "Mago"],
     description: "Faça ataque corpo a corpo com arma. Acerto: dano normal. Se outra criatura estiver a 1,5m do alvo, ela sofre 1d8 de fogo.",
     source: { book: "PHB 2024", page: 0 },
   },
@@ -316,7 +316,7 @@ export const spells: SpellData[] = [
     name: "Detectar Magia",
     level: 1, school: "Adivinhação", ritual: true, concentration: true,
     castingTime: "1 ação", range: "Pessoal", components: ["V", "S"], duration: "10 minutos",
-    classes: ["Mago", "Feiticeiro", "Clérigo", "Druida", "Guardião", "Bardo", "Bruxo", "Paladino", "Artífice"],
+    classes: ["Mago", "Feiticeiro", "Clérigo", "Druida", "Guardião", "Bardo", "Bruxo", "Paladino"],
     description: "Enquanto a magia durar, você percebe a presença de magia em um raio de 9m. Pode usar sua ação para ver uma aura ao redor de qualquer criatura ou objeto visível que carregue magia, e identificar sua escola.",
     source: { book: "PHB 2024", page: 0 },
   },
@@ -352,7 +352,7 @@ export const spells: SpellData[] = [
     name: "Queda Suave",
     level: 1, school: "Transmutação", ritual: false, concentration: false,
     castingTime: "1 reação", range: "18m", components: ["V", "M"], duration: "1 minuto",
-    classes: ["Mago", "Feiticeiro", "Bardo", "Artífice"],
+    classes: ["Mago", "Feiticeiro", "Bardo"],
     description: "Escolha até 5 criaturas em queda. A velocidade cai para 18m/rodada. Se aterrissarem antes, não sofrem dano.",
     source: { book: "PHB 2024", page: 0 },
   },
@@ -361,7 +361,7 @@ export const spells: SpellData[] = [
     name: "Identificação",
     level: 1, school: "Adivinhação", ritual: true, concentration: false,
     castingTime: "1 minuto", range: "Toque", components: ["V", "S", "M"], duration: "Instantânea",
-    classes: ["Mago", "Bardo", "Artífice"],
+    classes: ["Mago", "Bardo"],
     description: "Descubra propriedades e como usar um objeto mágico que esteja tocando.",
     source: { book: "PHB 2024", page: 0 },
   },
@@ -370,7 +370,7 @@ export const spells: SpellData[] = [
     name: "Alarme",
     level: 1, school: "Abjuração", ritual: true, concentration: false,
     castingTime: "1 minuto", range: "9m", components: ["V", "S", "M"], duration: "8 horas",
-    classes: ["Mago", "Guardião", "Artífice"],
+    classes: ["Mago", "Guardião"],
     description: "Defina alarme contra intrusão. Alerta mental ou audível quando uma criatura entra na área.",
     source: { book: "PHB 2024", page: 0 },
   },
@@ -416,7 +416,7 @@ export const spells: SpellData[] = [
     name: "Curar Ferimentos",
     level: 1, school: "Evocação", ritual: false, concentration: false,
     castingTime: "1 ação", range: "Toque", components: ["V", "S"], duration: "Instantânea",
-    classes: ["Bardo", "Clérigo", "Druida", "Paladino", "Guardião", "Artífice"],
+    classes: ["Bardo", "Clérigo", "Druida", "Paladino", "Guardião"],
     description: "Criatura que você toca recupera 1d8 + mod. de conjuração PV. Sem efeito em mortos-vivos ou constructos.",
     source: { book: "PHB 2024", page: 0 },
   },
@@ -627,7 +627,7 @@ export const spells: SpellData[] = [
     name: "Passos Longos",
     level: 1, school: "Transmutação", ritual: false, concentration: false,
     castingTime: "1 ação", range: "Toque", components: ["V", "S", "M"], duration: "1 hora",
-    classes: ["Bardo", "Druida", "Guardião", "Mago", "Artífice"],
+    classes: ["Bardo", "Druida", "Guardião", "Mago"],
     description: "Toque criatura. Deslocamento +3m pela duração.",
     source: { book: "PHB 2024", page: 0 },
   },
@@ -636,7 +636,7 @@ export const spells: SpellData[] = [
     name: "Salto",
     level: 1, school: "Transmutação", ritual: false, concentration: false,
     castingTime: "1 ação", range: "Toque", components: ["V", "S", "M"], duration: "1 minuto",
-    classes: ["Druida", "Feiticeiro", "Guardião", "Mago", "Artífice"],
+    classes: ["Druida", "Feiticeiro", "Guardião", "Mago"],
     description: "Distância de salto da criatura tocada é triplicada pela duração.",
     source: { book: "PHB 2024", page: 0 },
   },
@@ -645,7 +645,7 @@ export const spells: SpellData[] = [
     name: "Purificar Alimentos e Bebidas",
     level: 1, school: "Transmutação", ritual: true, concentration: false,
     castingTime: "1 ação", range: "3m", components: ["V", "S"], duration: "Instantânea",
-    classes: ["Clérigo", "Druida", "Paladino", "Artífice"],
+    classes: ["Clérigo", "Druida", "Paladino"],
     description: "Toda comida e bebida não-mágica numa esfera de 1,5m é purificada de venenos e doenças.",
     source: { book: "PHB 2024", page: 0 },
   },
@@ -674,7 +674,7 @@ export const spells: SpellData[] = [
     name: "Graxa",
     level: 1, school: "Conjuração", ritual: false, concentration: false,
     castingTime: "1 ação", range: "18m", components: ["V", "S", "M"], duration: "1 minuto",
-    classes: ["Mago", "Feiticeiro", "Artífice"],
+    classes: ["Mago", "Feiticeiro"],
     description: "Cubra o chão num quadrado de 3m com graxa. Terreno difícil. Criaturas na área fazem TR de Destreza ou caem.",
     source: { book: "PHB 2024", page: 0 },
   },
@@ -766,7 +766,7 @@ export const spells: SpellData[] = [
     name: "Invisibilidade",
     level: 2, school: "Ilusão", ritual: false, concentration: true,
     castingTime: "1 ação", range: "Toque", components: ["V", "S", "M"], duration: "1 hora",
-    classes: ["Mago", "Feiticeiro", "Bardo", "Bruxo", "Artífice"],
+    classes: ["Mago", "Feiticeiro", "Bardo", "Bruxo"],
     description: "Criatura que você toca fica invisível até atacar ou conjurar.",
     source: { book: "PHB 2024", page: 0 },
   },
@@ -789,6 +789,34 @@ export const spells: SpellData[] = [
     source: { book: "PHB 2024", page: 0 },
   },
 ];
+
+function normalizeSpell(spell: SpellData): SpellData {
+  const normalizedName = spell.name
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace("Gelido", "Gélido");
+
+  const normalizedDescription = spell.description
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/\.\s*/g, ". ")
+    .replace(/\s+,/g, ",")
+    .replace(/\s+\./g, ".")
+    .replace(/\s{2,}/g, " ");
+
+  const classes = [...new Set(spell.classes)].sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+  return {
+    ...spell,
+    name: normalizedName,
+    description: normalizedDescription,
+    classes,
+  };
+}
+
+export const spells: SpellData[] = rawSpells
+  .map(normalizeSpell)
+  .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
 /** Get unique schools from spell list */
 export function getSpellSchools(): string[] {
