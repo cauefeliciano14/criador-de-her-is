@@ -84,7 +84,7 @@ describe("choice engine", () => {
     expect(req.buckets.raceChoice.selectedIds).toEqual([]);
   });
 
-  it("idiomas base exigem 2 escolhas além de Comum", () => {
+  it("humano exige 1 idioma adicional além de Comum", () => {
     const char = makeCharacter({
       class: "guerreiro",
       race: "humano",
@@ -93,8 +93,22 @@ describe("choice engine", () => {
     });
 
     const req = getChoicesRequirements(char);
-    expect(req.buckets.languages.requiredCount).toBe(2);
+    expect(req.buckets.languages.requiredCount).toBe(1);
     expect(req.buckets.languages.options.some((l) => l.name === "Comum")).toBe(false);
+    expect(req.buckets.languages.sources).toEqual(["race:humano:1"]);
+  });
+
+  it("antecedente com idioma opcional soma corretamente", () => {
+    const char = makeCharacter({
+      class: "guerreiro",
+      race: "humano",
+      background: "sabio",
+      choiceSelections: { classSkills: [], languages: [], tools: [], instruments: [], cantrips: [], spells: [], raceChoice: null, classFeats: [] },
+    });
+
+    const req = getChoicesRequirements(char);
+    expect(req.buckets.languages.requiredCount).toBe(3);
+    expect(req.buckets.languages.sources).toEqual(["race:humano:1", "background:sabio:2"]);
   });
 
   it("bardo exige exatamente 3 instrumentos", () => {
