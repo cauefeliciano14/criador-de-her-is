@@ -67,6 +67,23 @@ Alinhado ao `docs/canonical_specs.md`, as próximas entregas priorizadas são:
 
 ## Troubleshooting rápido
 
+### 0) Lovable mostra "Preview has not been built yet"
+
+Use este checklist rápido (3 minutos):
+
+1. Abra o projeto no Lovable e entre em **Logs/Build**.
+2. Localize a etapa de instalação de dependências (`npm ci` ou `npm install`).
+3. Encontre o **primeiro erro real** no log (não apenas mensagens em cascata).
+4. Se o erro for `E403` / `403 Forbidden` (registry/bloqueio de pacote):
+   - confirme o registry usado pelo ambiente (`https://registry.npmjs.org`);
+   - valide se há proxy/política de segurança bloqueando pacote;
+   - rode novamente após ajuste da política/rede.
+5. Se o erro for lockfile: execute localmente `npm install` e comite o `package-lock.json` atualizado.
+6. Refaça o build e confirme se a etapa `vite build` executa até o fim.
+7. Só depois valide o **Preview**.
+
+Dica prática: quando o preview não nasce, quase sempre a causa está **antes** (install/build), então priorize o primeiro erro da pipeline.
+
 ### 1) Persistência local não está mantendo progresso
 
 Checklist:
@@ -86,6 +103,18 @@ Checklist:
 - Confirme que o arquivo é JSON válido e não foi alterado manualmente com estrutura inválida.
 - Em caso de erro, leia o toast de validação para identificar campos faltantes/incompatíveis.
 - Se o JSON for antigo, exporte novamente um personagem atual para comparar o formato esperado.
+
+
+## Configuração recomendada no Lovable (Preview)
+
+Quando o build falhar no `npm ci` com `E403/403 Forbidden` em pacotes de teste (ex.: `@testing-library/dom`), use pipeline de preview com dependências mínimas:
+
+- **Install command:** `npm install --omit=dev`
+- **Build command:** `npm run build`
+- **Registry:** `https://registry.npmjs.org/`
+- **Sem proxy corporativo** para npm (`proxy`/`https-proxy` desativados)
+
+Observação: dependências de teste/lint ficam para pipeline separado de CI, enquanto o preview instala apenas o necessário para gerar o bundle de produção.
 
 ## Stack
 
