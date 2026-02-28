@@ -20,6 +20,18 @@ export interface ValidationResult {
   warnings: ValidationItem[];
 }
 
+export const VALIDATION_ITEM_IDS = {
+  abilityMethod: "ability-method",
+  raceSelect: "race-select",
+  subraceSelect: "subrace-select",
+  classSelect: "class-select",
+  bgSelect: "bg-select",
+  choicesPending: "choices-pending",
+  cantripsCount: "cantrips-count",
+  spellsCount: "spells-count",
+  spellAbility: "spell-ability",
+} as const;
+
 /**
  * Step mapping used in validation:
  * - Default flow (useChoicesStep = false):
@@ -51,7 +63,7 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
 
   if (!char.abilityGeneration.method || !char.abilityGeneration.confirmed) {
     missing.push({
-      id: "ability-method",
+      id: VALIDATION_ITEM_IDS.abilityMethod,
       label: "Método de atributos não selecionado ou não confirmado",
       stepId: "abilities",
       stepNumber: 4,
@@ -62,7 +74,7 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
   // 2. Race
   if (!char.race) {
     missing.push({
-      id: "race-select",
+      id: VALIDATION_ITEM_IDS.raceSelect,
       label: "Raça não selecionada",
       stepId: "race",
       stepNumber: 3,
@@ -70,7 +82,7 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
     });
   } else if (race && race.subraces.length > 0 && !char.subrace) {
     missing.push({
-      id: "subrace-select",
+        id: VALIDATION_ITEM_IDS.subraceSelect,
       label: "Sub-raça obrigatória não selecionada",
       stepId: "race",
       stepNumber: 3,
@@ -109,7 +121,7 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
   // 3. Class
   if (!char.class) {
     missing.push({
-      id: "class-select",
+      id: VALIDATION_ITEM_IDS.classSelect,
       label: "Classe não selecionada",
       stepId: "class",
       stepNumber: 1,
@@ -200,7 +212,7 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
   // 4. Background
   if (!char.background) {
     missing.push({
-      id: "bg-select",
+      id: VALIDATION_ITEM_IDS.bgSelect,
       label: "Antecedente não selecionado",
       stepId: "origin",
       stepNumber: 2,
@@ -229,7 +241,7 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
   if (choicesReq.needsStep) {
     const pending = Object.values(choicesReq.buckets).reduce((a, b) => a + b.pendingCount, 0);
     missing.push({
-      id: "choices-pending",
+      id: VALIDATION_ITEM_IDS.choicesPending,
       label: `Escolhas obrigatórias pendentes (${pending})`,
       stepId: choicesStepId,
       stepNumber: choicesStepNumber,
@@ -269,10 +281,41 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
 
     if (!char.spells.spellcastingAbility) {
       missing.push({
-        id: "spell-ability",
+        id: VALIDATION_ITEM_IDS.spellAbility,
         label: "Atributo de conjuração não definido",
         stepId: "equipment",
         stepNumber: 5,
+        severity: "required",
+      });
+    }
+
+    const selectedCantrips = new Set([
+      ...(char.choiceSelections?.cantrips ?? []),
+      ...(char.spells?.cantrips ?? []),
+    ]).size;
+    const selectedSpells = new Set([
+      ...(char.choiceSelections?.spells ?? []),
+      ...(char.spells?.prepared ?? []),
+    ]).size;
+    const requiredCantrips = choicesReq.buckets.cantrips.requiredCount;
+    const requiredSpells = choicesReq.buckets.spells.requiredCount;
+
+    if (requiredCantrips > 0 && selectedCantrips < requiredCantrips) {
+      missing.push({
+        id: VALIDATION_ITEM_IDS.cantripsCount,
+        label: `Truques incompletos (${selectedCantrips}/${requiredCantrips})`,
+        stepId: choicesStepId,
+        stepNumber: choicesStepNumber,
+        severity: "required",
+      });
+    }
+
+    if (requiredSpells > 0 && selectedSpells < requiredSpells) {
+      missing.push({
+        id: VALIDATION_ITEM_IDS.spellsCount,
+        label: `Magias incompletas (${selectedSpells}/${requiredSpells})`,
+        stepId: choicesStepId,
+        stepNumber: choicesStepNumber,
         severity: "required",
       });
     }
