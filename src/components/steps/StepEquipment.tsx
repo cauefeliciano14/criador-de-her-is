@@ -6,7 +6,7 @@ import { backgrounds } from "@/data/backgrounds";
 import { calcArmorClass, buildAttacks, isArmorProficient } from "@/utils/equipment";
 import { getChoicesRequirements } from "@/utils/choices";
 import { useEffect, useMemo, useState } from "react";
-import { Search, Plus, Minus, Shield, Swords, AlertTriangle, Package, Coins, Trash2, Check } from "lucide-react";
+import { Search, Plus, Minus, Shield, Swords, AlertTriangle, Package, Coins, Trash2, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -51,6 +51,7 @@ export function StepEquipment() {
   // ── Catalog state ──
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [isItemsCatalogOpen, setIsItemsCatalogOpen] = useState(false);
   const CATALOG_PAGE = 30;
   const [catalogVisible, setCatalogVisible] = useState(CATALOG_PAGE);
 
@@ -210,6 +211,16 @@ export function StepEquipment() {
     });
   }, [char.inventory]);
 
+  const classSkillsBucket = requirements.buckets.classSkills;
+  const classSkillsSelectedCount = classSkillsBucket.selectedIds.length;
+  const classSkillsMissing = Math.max(0, classSkillsBucket.requiredCount - classSkillsSelectedCount);
+  const selectedInventoryItemsPreview = useMemo(() => {
+    const names = inventoryItems
+      .map(({ item, entry }) => item?.name ?? entry.notes ?? entry.itemId)
+      .sort((a, b) => a.localeCompare(b, "pt-BR"));
+    return names.slice(0, 3);
+  }, [inventoryItems]);
+
   // ── Available armors/shields/weapons in inventory ──
   const invArmors = inventoryItems.filter(({ item }) => item?.type === "armor");
   const invShields = inventoryItems.filter(({ item }) => item?.type === "shield");
@@ -342,15 +353,29 @@ export function StepEquipment() {
         </section>
       )}
 
-      {(requirements.buckets.classSkills.pendingCount > 0 || requirements.buckets.languages.pendingCount > 0 || requirements.buckets.instruments.pendingCount > 0 || requirements.buckets.raceChoice.pendingCount > 0) && (
+      {(classSkillsBucket.requiredCount > 0 || requirements.buckets.languages.pendingCount > 0 || requirements.buckets.instruments.pendingCount > 0 || requirements.buckets.raceChoice.pendingCount > 0) && (
         <section className="space-y-3 rounded-lg border bg-card p-3">
           <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">Resolver pendências</h3>
-          {requirements.buckets.classSkills.pendingCount > 0 && (
-            <ChoiceGrid title="Perícias" options={requirements.buckets.classSkills.options} selected={char.choiceSelections.classSkills} onToggle={(id) => {
-              const cur = new Set(char.choiceSelections.classSkills ?? []);
-              if (cur.has(id)) cur.delete(id); else if (cur.size < requirements.buckets.classSkills.requiredCount) cur.add(id);
-              patchCharacter({ choiceSelections: { ...char.choiceSelections, classSkills: [...cur] }, classSkillChoices: [...cur] });
-            }} />
+          {classSkillsBucket.requiredCount > 0 && (
+            <ChoiceGrid
+              title="Perícias"
+              statusBadge={classSkillsMissing === 0 ? <Badge className="text-[10px]">Completo</Badge> : undefined}
+              helperText={
+                classSkillsMissing > 0
+                  ? `Selecione ${classSkillsBucket.requiredCount} perícias (faltam ${classSkillsMissing}).`
+                  : `Seleção completa (${classSkillsSelectedCount}/${classSkillsBucket.requiredCount}). Você pode editar quando quiser.`
+              }
+              summary={classSkillsMissing === 0 ? classSkillsBucket.options.filter((option) => classSkillsBucket.selectedIds.includes(option.id)).map((option) => option.name).sort((a, b) => a.localeCompare(b, "pt-BR")) : []}
+              options={classSkillsBucket.options}
+              selected={classSkillsBucket.selectedIds}
+              maxSelections={classSkillsBucket.requiredCount}
+              onToggle={(id) => {
+                const cur = new Set(classSkillsBucket.selectedIds);
+                if (cur.has(id)) cur.delete(id); else if (cur.size < classSkillsBucket.requiredCount) cur.add(id);
+                const nextSkills = [...cur];
+                patchCharacter({ choiceSelections: { ...char.choiceSelections, classSkills: nextSkills }, classSkillChoices: nextSkills });
+              }}
+            />
           )}
           {requirements.buckets.languages.pendingCount > 0 && (
             <ChoiceGrid title="Idiomas" options={requirements.buckets.languages.options} selected={char.choiceSelections.languages} onToggle={(id) => {
@@ -601,44 +626,78 @@ export function StepEquipment() {
 
       {/* ── Section 5: Item Catalog ── */}
       <section className="space-y-3">
-        <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
-          Catálogo de Itens
-        </h3>
-        <div className="flex flex-wrap gap-2 items-center">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar item..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-9"
-            />
-          </div>
-          <div className="flex gap-1 flex-wrap">
-            <FilterChip active={typeFilter === "all"} onClick={() => setTypeFilter("all")}>Todos</FilterChip>
-            {Object.entries(TYPE_LABELS).map(([key, label]) => (
-              <FilterChip key={key} active={typeFilter === key} onClick={() => setTypeFilter(key)}>
-                {label}
-              </FilterChip>
-            ))}
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[400px] overflow-y-auto pr-1">
-          {visibleItems.map((item) => (
-            <CatalogCard key={item.id} item={item} onAdd={() => addItem(item.id)} />
-          ))}
-          {catalogVisible < filteredItems.length && (
+        <div className="rounded-lg border bg-card">
+          <div className="flex items-center justify-between gap-3 p-3">
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+                Catálogo de Itens
+              </h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Selecionados: {char.inventory.length}
+              </p>
+              {!isItemsCatalogOpen && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {selectedInventoryItemsPreview.length > 0
+                    ? `${selectedInventoryItemsPreview.join(", ")}${char.inventory.length > selectedInventoryItemsPreview.length ? ", ..." : ""}`
+                    : "Nenhum item selecionado ainda."}
+                </p>
+              )}
+            </div>
             <button
-              onClick={() => setCatalogVisible((c) => c + CATALOG_PAGE)}
-              className="col-span-full rounded-lg border border-dashed py-2 text-sm text-muted-foreground hover:bg-secondary/50 transition-colors"
+              type="button"
+              aria-label={isItemsCatalogOpen ? "Minimizar catálogo de itens" : "Expandir catálogo de itens"}
+              onClick={() => setIsItemsCatalogOpen((open) => !open)}
+              className="inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-secondary"
             >
-              Mostrar mais ({filteredItems.length - catalogVisible} restantes)
+              {isItemsCatalogOpen ? "Minimizar" : "Ver catálogo"}
+              {isItemsCatalogOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
             </button>
+          </div>
+          {isItemsCatalogOpen && (
+            <div className="space-y-3 border-t p-3">
+              <div className="flex flex-wrap gap-2 items-center">
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar item..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-9 h-9"
+                  />
+                </div>
+                <div className="flex gap-1 flex-wrap">
+                  <FilterChip active={typeFilter === "all"} onClick={() => setTypeFilter("all")}>Todos</FilterChip>
+                  {Object.entries(TYPE_LABELS).map(([key, label]) => (
+                    <FilterChip key={key} active={typeFilter === key} onClick={() => setTypeFilter(key)}>
+                      {label}
+                    </FilterChip>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[400px] overflow-y-auto pr-1">
+                {visibleItems.map((item) => (
+                  <CatalogCard key={item.id} item={item} onAdd={() => addItem(item.id)} />
+                ))}
+                {catalogVisible < filteredItems.length && (
+                  <button
+                    onClick={() => setCatalogVisible((c) => c + CATALOG_PAGE)}
+                    className="col-span-full rounded-lg border border-dashed py-2 text-sm text-muted-foreground hover:bg-secondary/50 transition-colors"
+                  >
+                    Mostrar mais ({filteredItems.length - catalogVisible} restantes)
+                  </button>
+                )}
+                {filteredItems.length === 0 && (
+                  <p className="col-span-full text-center text-sm text-muted-foreground py-8">
+                    Nenhum item encontrado.
+                  </p>
+                )}
+              </div>
+            </div>
           )}
-          {filteredItems.length === 0 && (
-            <p className="col-span-full text-center text-sm text-muted-foreground py-8">
-              Nenhum item encontrado.
-            </p>
+          {!isItemsCatalogOpen && (
+            <div className="border-t px-3 py-2 text-xs text-muted-foreground">
+              Clique em <span className="font-medium">Ver catálogo</span> para buscar e adicionar itens.
+            </div>
           )}
         </div>
       </section>
@@ -718,6 +777,54 @@ function CatalogCard({ item, onAdd }: { item: Item; onAdd: () => void }) {
 }
 
 
-function ChoiceGrid({ title, options, selected, onToggle }: { title: string; options: { id: string; name: string }[]; selected: string[]; onToggle: (id: string) => void }) {
-  return <div className="space-y-2"><p className="text-sm font-medium">{title}</p><div className="grid grid-cols-2 gap-2">{options.map((o) => <button key={o.id} onClick={() => onToggle(o.id)} className={`rounded border px-2 py-1 text-sm text-left ${(selected ?? []).includes(o.id) ? "border-primary bg-primary/10" : "hover:bg-secondary"}`}>{o.name}</button>)}</div></div>;
+function ChoiceGrid({
+  title,
+  options,
+  selected,
+  onToggle,
+  helperText,
+  summary,
+  maxSelections,
+  statusBadge,
+}: {
+  title: string;
+  options: { id: string; name: string }[];
+  selected: string[];
+  onToggle: (id: string) => void;
+  helperText?: string;
+  summary?: string[];
+  maxSelections?: number;
+  statusBadge?: React.ReactNode;
+}) {
+  const safeSelected = selected ?? [];
+  const sortedOptions = [...options].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-medium">{title}</p>
+        {statusBadge}
+      </div>
+      {helperText && <p className="text-xs text-muted-foreground">{helperText}</p>}
+      {summary && summary.length > 0 && (
+        <p className="text-xs text-muted-foreground">Selecionadas: {summary.join(", ")}.</p>
+      )}
+      <div className="grid grid-cols-2 gap-2">
+        {sortedOptions.map((o) => {
+          const isSelected = safeSelected.includes(o.id);
+          const isAtLimit = typeof maxSelections === "number" && safeSelected.length >= maxSelections;
+          const isDisabled = !isSelected && isAtLimit;
+          return (
+            <button
+              key={o.id}
+              onClick={() => onToggle(o.id)}
+              disabled={isDisabled}
+              className={`rounded border px-2 py-1 text-sm text-left ${isSelected ? "border-primary bg-primary/10" : isDisabled ? "opacity-40 cursor-not-allowed" : "hover:bg-secondary"}`}
+            >
+              {o.name}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
