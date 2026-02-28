@@ -208,23 +208,6 @@ export function validateCharacterCompleteness(char: CharacterState, useChoicesSt
     });
   }
 
-  // Background ability choices
-  if (bg?.abilityBonuses.mode === "choose" && bg.abilityBonuses.choose) {
-    const choicesNeeded = bg.abilityBonuses.choose.choices;
-    const chosen = Object.keys(char.backgroundAbilityChoices).filter(
-      (k) => (char.backgroundAbilityChoices as any)[k] > 0
-    ).length;
-    if (chosen < choicesNeeded) {
-      missing.push({
-        id: "bg-ability-choices",
-        label: `Bônus de atributo do antecedente incompletos (${chosen}/${choicesNeeded})`,
-        stepId: "abilities",
-        stepNumber: 4,
-        severity: "required",
-      });
-    }
-  }
-
   // Origin feat
   if (bg) {
     const hasFeat = char.features.some(

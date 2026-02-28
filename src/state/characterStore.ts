@@ -84,6 +84,14 @@ export interface AppliedFeat {
 
 export type RaceChoicesState = Record<string, string>;
 
+export interface OriginSelectionState {
+  background: string | null;
+  skillsGranted: string[];
+  toolGranted: string | null;
+  originFeat: string | null;
+  startingEquipment: "A" | "B" | null;
+}
+
 export interface ChoiceSelectionsState {
   classSkills: string[];
   languages: string[];
@@ -108,6 +116,8 @@ export interface CharacterState {
   class: string | null;
   subclass: string | null;
   background: string | null;
+  backgroundToolChoice: string | null;
+  origin: OriginSelectionState;
   abilityGeneration: AbilityGeneration;
   abilityScores: Record<AbilityKey, number>;
   racialBonuses: Record<AbilityKey, number>;
@@ -159,7 +169,8 @@ export interface CharacterState {
 const DEFAULT_CHARACTER: CharacterState = {
   lastSavedAt: null,
   persistError: null,
-  name: "", level: 1, race: null, raceLineage: null, subrace: null, class: null, subclass: null, background: null,
+  name: "", level: 1, race: null, raceLineage: null, subrace: null, class: null, subclass: null, background: null, backgroundToolChoice: null,
+  origin: { background: null, skillsGranted: [], toolGranted: null, originFeat: null, startingEquipment: null },
   abilityGeneration: { ...DEFAULT_ABILITY_GEN },
   abilityScores: { ...DEFAULT_SCORES },
   racialBonuses: { ...DEFAULT_RACIAL },
